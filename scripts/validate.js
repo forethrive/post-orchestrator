@@ -4,11 +4,11 @@
 //        npm run validate -- posts/2026-10-13
 import path from 'node:path';
 import { ROOT, findBatch, readBatch } from './lib/batch.js';
-import { checkPost, loadFactUrls } from './lib/checks.js';
+import { checkPost, loadAllowedUrls } from './lib/checks.js';
 
 const dir = findBatch(process.argv[2]);
 const { posts } = readBatch(dir);
-const factUrls = loadFactUrls();
+const factUrls = loadAllowedUrls(dir);
 const seenIds = new Set();
 let failing = 0;
 

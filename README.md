@@ -15,8 +15,8 @@ There are two ways to run the generator:
 | | **`npm run generate`** | **`/generate-posts` in Claude Code** |
 | --- | --- | --- |
 | Needs | An API key from OpenAI, Gemini, Groq or Anthropic | The Claude desktop app |
-| Who writes | The Writer agent, built with LangGraph | Claude, following `.claude/skills/generate-posts` |
-| Research | Uses the checked facts in `brand/facts.md` | Searches the web and adds new facts to `brand/facts.md` |
+| Who writes | The Research and Writer agents, built with LangGraph | Claude, following `.claude/skills/generate-posts` |
+| Research | The Research agent searches the web with a Tavily key (or uses `brand/facts.md` without one) | Claude searches the web and adds new facts to `brand/facts.md` |
 
 Both follow the same rules (`brand/writing-rules.md`), pass the same checks,
 draw with the same Post Studio, and open the same review page.
@@ -26,20 +26,24 @@ draw with the same Post Studio, and open the same review page.
 1. **Read.** It reads the brand guide in Post Studio, the company notes in
    `brand/company.md`, the checked facts in `brand/facts.md`, the team's ideas
    in `brand/ideas.md`, and every earlier batch, so it doesn't repeat itself.
-2. **Plan and write.** It writes 14 varied drafts. For each one it fills in
+2. **Research.** It searches the web for recent AI news, numbers from primary
+   sources, and what similar companies are posting on LinkedIn. Every number
+   is checked against the page it came from.
+3. **Plan and write.** It writes 14 varied drafts. For each one it fills in
    Post Studio's fields (label, big number, headline, supporting line) and
    writes the caption and first comment.
-3. **Check.** Every draft is tested against the brand guide. That covers
+4. **Check.** Every draft is tested against the brand guide. That covers
    headline length, the 125-character hook, allowed hashtags, banned buzzwords,
    no emojis in images, no numbers without a source, and no source that isn't
-   in `brand/facts.md`. Drafts that fail go back to be fixed.
-4. **Draw.** Post Studio draws each image in a hidden Chrome window, so they
+   a checked fact. Drafts that fail go back to be fixed.
+5. **Draw.** Post Studio draws each image in a hidden Chrome window, so they
    match images made by hand exactly.
-5. **Review.** A page opens at http://localhost:4400. You approve the best
+6. **Review.** A page opens at http://localhost:4400. You approve the best
    drafts, skip the rest, and mark them posted once they're live.
 
 **Nothing is invented.** Numbers come only from `brand/facts.md`, where each
-one is listed with the source someone opened and checked. Client wins,
+one is listed with the source someone opened and checked, or from research
+whose quotes were matched to their pages. Client wins,
 announcements and hiring posts come only from what the team writes in
 `brand/ideas.md`. Clients are named only when the idea says that's allowed.
 
@@ -69,12 +73,16 @@ announcements and hiring posts come only from what the team writes in
 2. Copy `.env.example` to `.env`, set `LLM_PROVIDER` to the provider's name,
    and paste the key on its line. `.env` is never committed, so the key stays
    on your computer.
-3. To use a different model, set `LLM_MODEL`.
+3. For web research, get a key from [Tavily](https://app.tavily.com) (it has a
+   free tier) and set `TAVILY_API_KEY`. Without it, posts use only the facts in
+   `brand/facts.md`.
+4. To use a different model, set `LLM_MODEL`.
 
-**What gets sent to the provider:** the brand guide, `brand/company.md`,
-`brand/facts.md`, `brand/ideas.md` and earlier posts. The ideas list can hold
-client details, so check your provider's data terms. Some free tiers use what
-you send to improve their models.
+**What gets sent where:** the AI provider receives the brand guide,
+`brand/company.md`, `brand/facts.md`, `brand/ideas.md`, earlier posts and the
+research. The ideas list can hold client details, so check your provider's data
+terms. Some free tiers use what you send to improve their models. Tavily
+receives only the search queries and the links the agent reads.
 
 ### With Claude Code
 
@@ -101,10 +109,67 @@ Install the Claude desktop app and sign in. The generator runs in its Code tab.
 5. Stop the review page with Ctrl+C in its terminal. Open it again later with
    `npm run review`.
 
-## The Writer agent
+## The agents
 
-`npm run generate` runs the Writer agent (`scripts/agents/writer.js`), a small
-[LangGraph](https://docs.langchain.com/oss/javascript/langgraph/overview) graph:
+`npm run generate` runs the post orchestrator (`scripts/agents/orchestrator.js`),
+a [LangGraph](https://docs.langchain.com/oss/javascript/langgraph/overview) graph
+with two agents and a fact check between them:
+
+```mermaid
+flowchart LR
+  start((start)) --> research[Research agent]
+  research --> verify[Fact check]
+  verify --> writer[Writer agent]
+  writer --> done((end))
+  start -. no Tavily key .-> writer
+```
+
+### The Research agent
+
+It works like a researcher with a browser. Given today's date and what
+Forethrive has already posted, it decides what to look for, uses its tools, reads
+what comes back, and decides what to do next, until it has enough material for
+the batch (or has taken 12 turns).
+
+```mermaid
+flowchart LR
+  start((start)) --> think
+  think -- wants a tool --> tools
+  tools --> think
+  think -- has enough --> brief[write_brief]
+  brief --> done((end))
+```
+
+Its three tools (`scripts/agents/research-tools.js`):
+
+- **search_web** searches the web through Tavily, optionally only the last
+  month, for news and for surveys and studies with numbers.
+- **search_linkedin** searches public LinkedIn posts, to see what AI
+  consultancies and automation firms are posting: their themes, formats and
+  hooks. It only sees what search results show. It never logs in to LinkedIn
+  or opens LinkedIn pages, which LinkedIn's terms forbid. The posts are for
+  ideas only, and the writer never copies their wording.
+- **read_page** reads a web page or PDF, so the agent can copy exact quotes. It
+  won't open LinkedIn or addresses on your own network.
+
+When it's done, it writes a **research brief**: recent news, facts with exact
+quotes, inspiration from similar companies, and angles for Forethrive. What it
+looks for is set in `brand/research-rules.md`, in plain English, so anyone can
+change it.
+
+### The fact check
+
+Plain code, not AI (`scripts/agents/verify.js`). For every fact in the brief,
+the quote must appear word for word on the page the agent read, and every
+number in the claim must appear in the quote. Facts that fail are dropped, and
+the Writer agent may only cite facts that passed. The brief and the check's
+results are saved with the batch as `research.md` (to read) and
+`research.json` (for the checks). To reuse a good fact in later batches, copy it
+into `brand/facts.md`.
+
+### The Writer agent
+
+`scripts/agents/writer.js` writes the posts from the brief:
 
 ```mermaid
 flowchart LR
@@ -131,7 +196,7 @@ flowchart LR
 
 | Command | What it does |
 | --- | --- |
-| `npm run generate` | Writes a batch with your API key, draws it and opens the review page |
+| `npm run generate` | Researches and writes a batch with your API keys, draws it and opens the review page. Add `-- --no-research` to skip the research. |
 | `npm run validate` | Checks the newest batch against the brand guide |
 | `npm run render` | Draws the newest batch's images with Post Studio |
 | `npm run review` | Opens the review page for the newest batch |
@@ -146,15 +211,16 @@ example `npm run review -- posts/2026-10-13`.
 | `post-studio.html` | Post Studio. Open it in a browser to make a post by hand. |
 | `brand/writing-rules.md` | How to plan and write posts: types, facts, fields, captions |
 | `brand/company.md` | What Forethrive does and who the posts are for |
-| `brand/facts.md` | Checked statistics with their sources. Posts may only cite these. |
+| `brand/facts.md` | Checked statistics with their sources. Posts may cite these. |
+| `brand/research-rules.md` | What the Research agent looks for and how |
 | `brand/ideas.example.md` | The format for `brand/ideas.md` |
 | `brand/rules.js` | The brand guide's limits, used by the checks |
-| `scripts/agents/` | The Writer agent, its instructions and the provider settings |
+| `scripts/agents/` | The Research and Writer agents, the fact check, and the provider settings |
 | `scripts/` | The generate, validate, render and review commands (shared code in `scripts/lib/`) |
 | `.claude/skills/generate-posts/SKILL.md` | The generator's instructions for Claude Code |
 | `.env.example` | The settings template for `npm run generate` |
 | `review/index.html` | The review page |
-| `posts/` | One folder per batch, with `posts.json` and the images |
+| `posts/` | One folder per batch, with `posts.json`, the images and any research |
 
 `.env`, `brand/ideas.md` and `posts/` are never committed (see `.gitignore`).
 They hold API keys, client details and unannounced news, and this repository is

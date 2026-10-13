@@ -27,10 +27,11 @@ from each other, so there's a real choice.
 
 - No made-up clients, results, numbers, quotes, launches, products or job
   openings.
-- Every number comes from `brand/facts.md` or `brand/ideas.md`. Quote it
-  exactly, with its context (who was asked, and when).
-- Every source in a post must be an entry in `brand/facts.md`. Copy its title
-  and URL exactly.
+- Every number comes from `brand/facts.md`, `brand/ideas.md`, or the facts the
+  Research agent checked for this batch. Quote it exactly, with its context
+  (who was asked, and when).
+- Every source in a post must be one of those checked facts. Copy its title and
+  URL exactly.
 - Posts from an idea use only the facts written in it. Don't round up, add
   detail or make it sound bigger. Name a client only when the idea says you can.
 - Never use anything listed under "Not confirmed" in `brand/company.md`.
