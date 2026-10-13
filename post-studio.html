@@ -88,7 +88,7 @@ var P=[{n:'Announcement',l:'Announcement',b:'',h:'Forethrive is officially live.
 {n:'Client win',l:'Client story',b:'',h:'From 3 days of reporting to 10 minutes.',s:'The problem, what we built, and the result.'},
 {n:'Hiring',l:"We're hiring",b:'',h:'AI engineer. Remote or hybrid.',s:'Build real AI products with a small, fast team. Message us to apply.'}];
 var $=function(i){return document.getElementById(i)},cv=$('cv'),x=cv.getContext('2d'),img=new Image();
-img.onload=function(){draw()};img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(LOGO);
+var logoReady=new Promise(function(r){img.onload=function(){draw();r()}});img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(LOGO);
 $('pre').innerHTML=P.map(function(p,i){return '<button data-i="'+i+'">'+p.n+'</button>'}).join('');
 function pick(i){var p=P[i];$('lab').value=p.l;$('big').value=p.b;$('head').value=p.h;$('sub').value=p.s;[].forEach.call(document.querySelectorAll('#pre button'),function(b,j){b.className=j==i?'on':''});draw()}
 $('pre').onclick=function(e){if(e.target.dataset.i!==undefined)pick(+e.target.dataset.i)};
@@ -118,5 +118,12 @@ var sub=$('sub').value.trim();
 if(sub){y+=18;x.font='400 36px Manrope,sans-serif';x.fillStyle='#b9c0e0';wrap(sub,mw-60).slice(0,4).forEach(function(l){x.fillText(l,M,y+30);y+=52})}
 x.font='600 32px Manrope,sans-serif';x.fillStyle='#fff';x.fillText('forethrive.ai',M,H-M+10)}
 $('dl').onclick=function(){cv.toBlob(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='forethrive-post.png';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},2000);$('msg').textContent='Downloaded. Check your Downloads folder.'},'image/png')};
-(document.fonts&&document.fonts.load?Promise.all([document.fonts.load('700 60px Manrope'),document.fonts.load('300 30px Manrope'),document.fonts.load('400 30px Manrope'),document.fonts.load('600 30px Manrope')]):Promise.resolve()).then(function(){pick(0)},function(){pick(0)});pick(0);
+var fontsReady=document.fonts&&document.fonts.load?Promise.all([document.fonts.load('700 60px Manrope'),document.fonts.load('300 30px Manrope'),document.fonts.load('400 30px Manrope'),document.fonts.load('500 30px Manrope'),document.fonts.load('600 30px Manrope')]):Promise.resolve();
+fontsReady.then(function(){pick(0)},function(){pick(0)});pick(0);
+// Used by scripts/render.js: fill in the fields, draw, and return the image as a PNG data URL.
+window.renderPost=function(f){return Promise.all([fontsReady,logoReady]).then(function(){
+var ok=false;document.fonts.forEach(function(ff){if(ff.family.replace(/["']/g,'')==='Manrope'&&ff.status==='loaded')ok=true});
+if(!ok)throw new Error('The Manrope font did not load. Check the internet connection.');
+$('lab').value=f.label||'';$('big').value=f.big||'';$('head').value=f.headline||'';$('sub').value=f.sub||'';$('size').value=f.size==='square'?'1080':'1350';
+draw();return cv.toDataURL('image/png')})};
 </script></body></html>

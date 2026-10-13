@@ -1,0 +1,8 @@
+node_modules/
+
+# Drafts and real ideas can hold client details or unannounced news, and this
+# repository is public, so they stay on this Mac.
+posts/
+brand/ideas.md
+
+.DS_Store
