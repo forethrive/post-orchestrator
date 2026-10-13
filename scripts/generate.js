@@ -5,23 +5,15 @@
 //        npm run generate -- --count 6
 //        npm run generate -- --no-research  (skip the web research)
 //        npm run generate -- --no-review    (don't open the review page)
-import fs from 'node:fs';
-import path from 'node:path';
-import { spawn } from 'node:child_process';
 import { parseArgs } from 'node:util';
-import { ROOT, today, newBatchDir, writeBatch } from './lib/batch.js';
-import { renderBatch } from './lib/draw.js';
-import { loadSettings, makeModel, SetupError } from './agents/models.js';
+import { today } from './lib/batch.js';
+import { saveDrawAndReview } from './lib/finish.js';
+import { loadDotEnv, loadSettings, makeModel, SetupError } from './agents/models.js';
 import { tavilyServices } from './agents/research-tools.js';
 import { researchMarkdown } from './agents/brief.js';
 import { buildOrchestrator } from './agents/orchestrator.js';
 
-// Read the settings in .env, if there's one, into process.env (built into Node).
-try {
-  process.loadEnvFile(path.join(ROOT, '.env'));
-} catch {
-  // No .env yet: loadSettings explains what to do.
-}
+loadDotEnv();
 
 const { values: args } = parseArgs({
   options: {
@@ -50,33 +42,23 @@ try {
   }
   console.log('');
 
-  const orchestrator = buildOrchestrator(model, search);
-  const result = await orchestrator.invoke({ count });
-
-  // Number the posts that passed 01, 02 and so on, with no gaps.
-  const posts = result.posts.map((post, i) => ({ ...post, id: String(i + 1).padStart(2, '0') }));
-  if (posts.length === 0) {
+  const result = await buildOrchestrator(model, search).invoke({ count });
+  if (result.posts.length === 0) {
     throw new SetupError('No posts passed the checks. Try again, or try another model.');
   }
 
-  const dir = newBatchDir();
-  const generator = `${settings.id}/${settings.model}${search ? ' with research' : ''}`;
-  writeBatch(dir, { createdAt: today(), generator, posts });
+  const files = {};
   if (result.brief) {
-    const research = { brief: result.brief, verifiedFacts: result.verifiedFacts, rejectedFacts: result.rejectedFacts };
-    fs.writeFileSync(path.join(dir, 'research.json'), JSON.stringify(research, null, 2) + '\n');
-    fs.writeFileSync(
-      path.join(dir, 'research.md'),
-      researchMarkdown(result.brief, result.verifiedFacts, result.rejectedFacts, path.basename(dir)),
-    );
+    const { brief, verifiedFacts, rejectedFacts } = result;
+    files['research.json'] = JSON.stringify({ brief, verifiedFacts, rejectedFacts }, null, 2) + '\n';
+    files['research.md'] = researchMarkdown(brief, verifiedFacts, rejectedFacts, today());
   }
-  console.log(`\nSaved ${posts.length} posts in ${path.relative(ROOT, dir)}. Drawing the images…`);
-  await renderBatch(dir);
-
-  if (!args['no-review']) {
-    console.log('');
-    spawn(process.execPath, [path.join(ROOT, 'scripts', 'review.js'), dir], { stdio: 'inherit' });
-  }
+  await saveDrawAndReview({
+    posts: result.posts,
+    generator: `${settings.id}/${settings.model}${search ? ' with research' : ''}`,
+    files,
+    review: !args['no-review'],
+  });
 } catch (error) {
   // Setup problems and errors from the provider (a wrong key, an unknown model)
   // are shown as a plain message instead of a stack trace.

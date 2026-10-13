@@ -1,6 +1,7 @@
 // The Writer agent: a LangGraph graph that writes a batch a few posts at a
 // time, checks every post against the brand rules, and sends failing posts
-// back to the model with the problems listed until they pass.
+// back to the model with the problems listed until they pass. Given a draft,
+// it polishes that draft instead (npm run polish).
 //
 //   START → next_chunk ──(all written)──→ END
 //               │
@@ -12,7 +13,7 @@ import { StateGraph, StateSchema, START, END } from '@langchain/langgraph';
 import { SystemMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 import { PostsReply } from './schema.js';
 import { writerInstructions } from './context.js';
-import { checkPost } from '../lib/checks.js';
+import { checkPost, numbersIn } from '../lib/checks.js';
 
 // Five posts per request keeps each request small enough for free tiers.
 const CHUNK_SIZE = 5;
@@ -23,7 +24,9 @@ const pad = (n) => String(n).padStart(2, '0');
 const WriterState = new StateSchema({
   count: z.number(),
   brief: z.string().default(''),
+  draft: z.string().default(''), // a rough write-up to polish, if any
   allowedUrls: z.array(z.string()).default(() => []),
+  allowedNumbers: z.array(z.string()).default(() => []), // when polishing a draft
   posts: z.array(z.any()).default(() => []), // posts that passed
   nextId: z.number().default(1),
   chunk: z.array(z.string()).default(() => []), // ids being written now
@@ -34,10 +37,40 @@ const WriterState = new StateSchema({
   fixRounds: z.number().default(0),
 });
 
+const quoteIds = (ids) => ids.map((id) => `"${id}"`).join(', ');
+
+// How a polished post records where it came from.
+const draftLabel = (draft) => `Your draft: "${draft.split('\n')[0].slice(0, 60)}${draft.length > 60 ? '…' : ''}"`;
+
+function draftRequest(ids, draft) {
+  const one = ids.length === 1;
+  return [
+    `The team wrote this rough draft of a post they want to publish:\n\n"""\n${draft}\n"""`,
+    `Turn it into ${one ? 'one polished post' : `${ids.length} polished versions`} with the ` +
+      `id${one ? '' : 's'} ${quoteIds(ids)}, ready to post.`,
+    "Keep the team's message, facts and intent. Improve the hook, the wording and the structure so " +
+      'it follows the writing rules, fill in every field Post Studio needs, and choose the post type ' +
+      'that fits. Treat the draft like an entry in the ideas list.',
+    "Use only facts and numbers that are in the draft or in the checked facts. Don't add new ones, " +
+      'and name a client only if the draft does.',
+    one ? '' : 'Make the versions clearly different: a different hook, headline, angle or post type.',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+// Numbers in a post that aren't in the draft or the checked facts.
+function addedNumbers(post, allowedNumbers) {
+  const { image, caption } = post;
+  const text = [image.label, image.big, image.headline, image.sub, caption.hook, ...caption.body, caption.action].join(' ');
+  return [...new Set(numbersIn(text))].filter((n) => !allowedNumbers.includes(n));
+}
+
 function chunkRequest(ids, state) {
+  if (state.draft) return draftRequest(ids, state.draft);
   const written = state.posts.map((p) => `- ${p.id} ${p.type}: ${p.image.headline}`).join('\n');
   return [
-    `Write ${ids.length} posts with the ids ${ids.map((id) => `"${id}"`).join(', ')}.`,
+    `Write ${ids.length} posts with the ids ${quoteIds(ids)}.`,
     `The whole batch has ${state.count} posts. Across it, aim for mostly AI insight posts, about a ` +
       'quarter Stat posts (only with checked facts), and one post for each unused idea from the team.',
     `Posts already written in this batch (don't repeat their topics or hooks):\n${written || 'None yet.'}`,
@@ -52,7 +85,11 @@ export function buildWriterGraph(model) {
     const last = Math.min(state.nextId + CHUNK_SIZE - 1, state.count);
     const ids = [];
     for (let n = state.nextId; n <= last; n++) ids.push(pad(n));
-    console.log(`Writer agent: writing posts ${ids[0]} to ${ids.at(-1)} of ${pad(state.count)}…`);
+    console.log(
+      state.draft
+        ? `Writer agent: polishing your draft into ${ids.length === 1 ? 'a post' : `${ids.length} versions`}…`
+        : `Writer agent: writing posts ${ids[0]} to ${ids.at(-1)} of ${pad(state.count)}…`,
+    );
     return {
       chunk: ids,
       pending: ids,
@@ -80,10 +117,15 @@ export function buildWriterGraph(model) {
     const problems = {};
     for (const post of state.received) {
       if (!state.pending.includes(post.id) || accepted.some((p) => p.id === post.id)) continue;
-      const draft = { ...post, status: 'draft' };
-      const found = checkPost(draft, allowed);
+      const candidate = { ...post, status: 'draft' };
+      if (state.draft) candidate.fromIdea = draftLabel(state.draft);
+      const found = checkPost(candidate, allowed);
+      if (state.draft) {
+        const added = addedNumbers(candidate, state.allowedNumbers);
+        if (added.length > 0) found.push(`uses numbers that aren't in the draft or the checked facts: ${added.join(', ')}`);
+      }
       if (found.length > 0) problems[post.id] = found;
-      else accepted.push(draft);
+      else accepted.push(candidate);
     }
     const pending = state.pending.filter((id) => !accepted.some((p) => p.id === id));
     for (const id of pending) problems[id] ??= ['missing from the reply'];

@@ -1,6 +1,17 @@
 // Connects to the AI provider chosen in .env. LangChain's initChatModel gives
 // every provider the same interface, so the agents don't care which one it is.
+import path from 'node:path';
 import { initChatModel } from 'langchain';
+import { ROOT } from '../lib/batch.js';
+
+// Reads the settings in .env, if there's one, into process.env (built into Node).
+export function loadDotEnv() {
+  try {
+    process.loadEnvFile(path.join(ROOT, '.env'));
+  } catch {
+    // No .env yet: loadSettings explains what to do.
+  }
+}
 
 export const PROVIDERS = {
   openai: {
