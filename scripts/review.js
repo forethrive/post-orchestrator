@@ -83,5 +83,12 @@ server.on('error', (error) => {
 server.listen(PORT, '127.0.0.1', () => {
   const link = `http://localhost:${PORT}`;
   console.log(`Reviewing ${path.relative(ROOT, dir)} at ${link}  (Ctrl+C stops it)`);
-  if (!args.includes('--no-open')) execFile('open', [link]);
+  if (!args.includes('--no-open')) {
+    // The command that opens a link in the default browser differs on Mac,
+    // Windows and Linux. If none works, the link printed above still does.
+    const [command, ...commandArgs] =
+      { darwin: ['open', link], win32: ['cmd', '/c', 'start', '', link] }[process.platform] ??
+      ['xdg-open', link];
+    execFile(command, commandArgs, () => {});
+  }
 });

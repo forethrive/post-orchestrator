@@ -6,3 +6,6 @@ posts/
 brand/ideas.md
 
 .DS_Store
+
+# API keys for npm run generate.
+.env
