@@ -2,7 +2,7 @@
 
 Statistics that someone has opened at the source and checked. Posts may only
 use numbers from this file or from `brand/ideas.md`, and every source a post
-cites must be listed here: `npm run validate` and `npm run generate` reject any
+cites must be listed here: `npm run validate` and the Python agents reject any
 other URL.
 
 To add a fact, open the original source (not an article quoting it), copy the

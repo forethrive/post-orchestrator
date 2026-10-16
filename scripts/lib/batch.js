@@ -7,11 +7,6 @@ import { fileURLToPath } from 'node:url';
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const POSTS_DIR = path.join(ROOT, 'posts');
 
-// Today's date as YYYY-MM-DD, in this computer's time zone.
-export function today() {
-  return new Date().toLocaleDateString('en-CA');
-}
-
 // Every batch folder in posts/, oldest first. The numeric option sorts
 // 2026-10-13-10 after 2026-10-13-2.
 export function listBatches() {
@@ -33,26 +28,12 @@ export function findBatch(arg) {
   return path.join(POSTS_DIR, batches.at(-1));
 }
 
-// A new, empty folder for today's batch: posts/2026-10-14, or -2, -3 and so on
-// if that already exists.
-export function newBatchDir() {
-  let dir = path.join(POSTS_DIR, today());
-  for (let n = 2; fs.existsSync(dir); n++) dir = path.join(POSTS_DIR, `${today()}-${n}`);
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
 export function readBatch(dir) {
   return JSON.parse(fs.readFileSync(path.join(dir, 'posts.json'), 'utf8'));
 }
 
 export function writeBatch(dir, batch) {
   fs.writeFileSync(path.join(dir, 'posts.json'), JSON.stringify(batch, null, 2) + '\n');
-}
-
-// Every post from every earlier batch, so new batches don't repeat them.
-export function pastPosts() {
-  return listBatches().flatMap((name) => readBatch(path.join(POSTS_DIR, name)).posts);
 }
 
 export function imageFile(post) {

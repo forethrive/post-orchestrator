@@ -1,6 +1,7 @@
 # How the Research agent researches
 
-The Research agent (part of `npm run generate`) reads this before every batch.
+The Research agent (part of `python -m agents.generate`) reads this before every
+batch.
 Change this file to change what it looks for.
 
 You're researching material for a batch of LinkedIn posts for the Forethrive

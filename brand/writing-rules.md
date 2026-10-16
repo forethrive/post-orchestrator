@@ -2,7 +2,7 @@
 
 How to plan and write a batch of posts for the Forethrive company page on
 LinkedIn. Both ways of generating posts follow this file: `/generate-posts` in
-Claude Code and `npm run generate` with an API key. Where it differs from the
+Claude Code and `python -m agents.generate` with an API key. Where it differs from the
 brand guide in Post Studio (the personal sign-off and @Forethrive tag), follow
 this file, because the page posts these itself.
 
