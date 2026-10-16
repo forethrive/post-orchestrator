@@ -24,6 +24,9 @@ def brief_text(brief: dict, verified_facts: list[dict]) -> str:
             _list(brief["inspiration"], lambda i: f"- {i['theme']} ({i['format']}): {i['notes']} {i['url']}"),
             "## Angles to consider",
             _list(brief["angles"], lambda a: f"- {a}"),
+            "## Already on Forethrive's LinkedIn page",
+            "Don't repeat these, or anything very similar.",
+            _list(brief.get("alreadyOnLinkedIn", []), lambda a: f"- {a}"),
         ]
     )
 

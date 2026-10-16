@@ -310,6 +310,8 @@ Its three tools (`agents/research_tools.py`):
   hooks. It only sees what search results show. It never logs in to LinkedIn
   or opens LinkedIn pages, which LinkedIn's terms forbid. The posts are for
   ideas only, and the writer never copies their wording.
+  It also finds what Forethrive itself has already posted, so the writer
+  doesn't repeat it.
 - **read_page** reads a web page or PDF, so the agent can copy exact quotes. It
   won't open LinkedIn or addresses on your own network.
 
