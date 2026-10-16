@@ -41,12 +41,12 @@ footer{color:var(--mu);font-size:.85rem;padding:10px 0 50px}
 <body>
 <header class="w">
   <div class="bar"></div>
-  <h1>LinkedIn shortlist</h1>
+  <h1 id="title">LinkedIn shortlist</h1>
   <p class="meta" id="meta"></p>
   <div class="how">
     <p>To post one:</p>
     <ol>
-      <li>Download the image (or use the PNG in the <code>images</code> folder).</li>
+      <li id="step-image">Download the image (or use the PNG in the <code>images</code> folder).</li>
       <li>On LinkedIn, switch to the Forethrive page and start a post.</li>
       <li>Add the image and paste the caption, then post it.</li>
       <li>Paste the first comment, which has the link.</li>
@@ -54,7 +54,7 @@ footer{color:var(--mu);font-size:.85rem;padding:10px 0 50px}
   </div>
 </header>
 <main class="w" id="posts"></main>
-<footer class="w">Made with Post Studio. Images here are compressed for sharing; full-quality PNGs are in the images folder.</footer>
+<footer class="w" id="footer">Made with Post Studio. Images here are compressed for sharing; full-quality PNGs are in the images folder.</footer>
 <script id="shortlist-data" type="application/json">/*DATA*/</script>
 <script>
 var data = JSON.parse(document.getElementById('shortlist-data').textContent);
@@ -63,6 +63,15 @@ function esc(text) {
   return String(text == null ? '' : text).replace(/[&<>"']/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
   });
+}
+
+// The same page is used for the approved shortlist and for the weekly drafts.
+document.title = 'Forethrive ' + data.title;
+document.getElementById('title').textContent = data.title;
+if (!data.withImagesFolder) {
+  document.getElementById('step-image').textContent = 'Download the image.';
+  document.getElementById('footer').textContent =
+    'Made with Post Studio. Images here are compressed for sharing; the full-quality PNGs are on the computer that made them.';
 }
 
 document.getElementById('meta').textContent =

@@ -151,6 +151,46 @@ research and your drafts. The ideas list can hold client details, so check your
 provider's data terms. Some free tiers use what you send to improve their
 models. Tavily receives only the search queries and the links the agent reads.
 
+## Automatic weekly drafts
+
+Every **Monday at 9:00**, the Claude app makes the week's drafts and emails
+them to the reviewers. Nobody has to start anything.
+
+1. The scheduled task follows `.claude/skills/weekly-drafts/SKILL.md`. It
+   generates 14 drafts with `/generate-posts`, using your Claude plan, so no
+   API key is needed.
+2. It exports them with `npm run export -- --drafts`: a PDF (one post per
+   page) and the all-in-one HTML page.
+3. It emails both to everyone in `MAIL_TO` with `python3 -m agents.mail
+   drafts`. All 14 come to about 5 MB.
+4. If anything fails, it emails `MAIL_ERRORS_TO` instead. The email says which
+   step failed and includes the last lines of `posts/weekly-run.log`.
+
+Reviewers pick the posts worth publishing and pass them to whoever posts on
+LinkedIn. Approvals aren't tracked yet; see [docs/ideas.md](docs/ideas.md).
+
+**Setting up email (once):**
+
+1. Use a Gmail account for sending, ideally a Forethrive one. Turn on 2-Step
+   Verification, then create an app password at
+   https://myaccount.google.com/apppasswords. On Google Workspace, the admin
+   may need to allow app passwords.
+2. In `.env`, set `MAIL_FROM` (that address), `MAIL_APP_PASSWORD`, `MAIL_TO`
+   (reviewers, comma-separated) and `MAIL_ERRORS_TO`.
+3. Check it: `python3 -m agents.mail check` checks the settings, and
+   `python3 -m agents.mail test` sends a test email to `MAIL_ERRORS_TO`.
+
+**Good to know:**
+
+- The task runs on this Mac, while the Claude app is open. If the app or the
+  Mac is off at 9:00, it runs the next time the app opens.
+- If Claude can't run at all (for example, the plan's usage limit is reached),
+  no email can be sent. The Claude app shows the failed run.
+- To pause, change or run it now: in the Claude app, go to **Scheduled** and
+  find "Weekly LinkedIn drafts".
+- To run the same thing by hand: open this folder in Claude Code and type
+  `/weekly-drafts`.
+
 ## How the generator works
 
 1. **Read.** It reads the brand guide in Post Studio, the company notes in
@@ -188,6 +228,8 @@ Clients are named only when the idea or draft does. All of these rules are in
 | `npm run render` | Draws the newest batch's images with Post Studio |
 | `npm run review` | Opens the review page for the newest batch |
 | `npm run export` | Exports the newest batch's approved posts as a zip to share (`-- --all` for every post not skipped) |
+| `npm run export -- --drafts` | Saves every post as a PDF and an HTML page, for the weekly email |
+| `python3 -m agents.mail drafts` | Emails the newest batch's drafts to `MAIL_TO` (`check`, `test` and `error` too; `--dry-run` saves instead of sending) |
 
 Each command works on the newest batch unless you name another one, for example
 `npm run review -- posts/2026-10-13`.
@@ -197,7 +239,7 @@ Each command works on the newest batch unless you name another one, for example
 | Path | What it is |
 | --- | --- |
 | `post-studio.html` | Post Studio. Open it in a browser to make a post by hand. |
-| `.claude/skills/` | Instructions for Claude Code: `generate-posts` and `polish-post` |
+| `.claude/skills/` | Instructions for Claude Code: `generate-posts`, `polish-post` and `weekly-drafts` |
 | `brand/writing-rules.md` | How to plan and write posts: types, facts, fields, captions |
 | `brand/company.md` | What Forethrive does and who the posts are for |
 | `brand/facts.md` | Checked statistics with their sources. Posts may cite these. |
@@ -324,6 +366,9 @@ If the brand guide in Post Studio changes, update `brand/rules.js` and
 `brand/writing-rules.md` to match.
 
 ## To do
+
+More ideas, with notes on how they'd work, are in [docs/ideas.md](docs/ideas.md).
+
 
 - [ ] **Send drafts by email through Gmail,** so people can review on their
   phones:

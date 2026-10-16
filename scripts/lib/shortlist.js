@@ -1,6 +1,8 @@
-// Builds the shortlist to share: the approved posts as one zip containing a
-// PDF (easy to read in any mail app), an all-in-one HTML page, the full-quality
-// images and a captions file.
+// Builds what gets shared from a batch:
+// - the shortlist: the approved posts as one zip with a PDF (easy to read in any
+//   mail app), an all-in-one HTML page, the full-quality images and a captions file
+// - the drafts: every post as a PDF and an all-in-one HTML page, for the weekly
+//   email to reviewers
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
@@ -29,7 +31,7 @@ function captionsFile(name, posts) {
 }
 
 // Full-size PNGs are about 1 MB each, so the copies inside the HTML page and
-// the PDF are JPEGs at high quality, which keeps the zip small enough to email.
+// the PDF are JPEGs at high quality, which keeps them small enough to email.
 async function jpegCopy(page, png) {
   const dataUrl = `data:image/png;base64,${png.toString('base64')}`;
   return page.evaluate(async (src) => {
@@ -44,26 +46,25 @@ async function jpegCopy(page, png) {
   }, dataUrl);
 }
 
-export async function buildShortlist(dir, options = {}) {
-  const name = path.basename(dir);
-  const posts = shortlistPosts(readBatch(dir), options);
-  if (posts.length === 0) {
-    throw new Error(options.all ? 'There are no posts to export.' : 'Approve at least one post first.');
-  }
-  const pngs = posts.map((post) => {
+function readImages(dir, posts) {
+  return posts.map((post) => {
     const file = path.join(dir, imageFile(post));
     if (!fs.existsSync(file)) throw new Error(`Post ${post.id} has no image yet. Run npm run render first.`);
     return fs.readFileSync(file);
   });
+}
 
+// The all-in-one HTML page and the same page printed as a PDF.
+async function renderPages(name, posts, pngs, { title, withImagesFolder }) {
   const browser = await chromium.launch({ channel: 'chrome' });
-  let html, pdf;
   try {
     const page = await browser.newPage();
     const images = [];
     for (const png of pngs) images.push(await jpegCopy(page, png));
 
     const data = {
+      title,
+      withImagesFolder,
       batch: name,
       exportedAt: new Date().toLocaleDateString('en-CA'),
       posts: posts.map((post, i) => ({
@@ -80,14 +81,25 @@ export async function buildShortlist(dir, options = {}) {
     };
     // "<" is escaped so no caption can end the <script> block early.
     const json = JSON.stringify(data).replace(/</g, '\\u003c');
-    html = fs.readFileSync(path.join(ROOT, 'review', 'shortlist.html'), 'utf8').replace('/*DATA*/', () => json);
+    const html = fs.readFileSync(path.join(ROOT, 'review', 'shortlist.html'), 'utf8').replace('/*DATA*/', () => json);
 
     await page.setContent(html, { waitUntil: 'networkidle' });
     await page.evaluate(() => document.fonts.ready);
-    pdf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '14mm', bottom: '14mm', left: '14mm', right: '14mm' } });
+    const pdf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '14mm', bottom: '14mm', left: '14mm', right: '14mm' } });
+    return { html, pdf };
   } finally {
     await browser.close();
   }
+}
+
+export async function buildShortlist(dir, options = {}) {
+  const name = path.basename(dir);
+  const posts = shortlistPosts(readBatch(dir), options);
+  if (posts.length === 0) {
+    throw new Error(options.all ? 'There are no posts to export.' : 'Approve at least one post first.');
+  }
+  const pngs = readImages(dir, posts);
+  const { html, pdf } = await renderPages(name, posts, pngs, { title: 'LinkedIn shortlist', withImagesFolder: true });
 
   const folder = `forethrive-shortlist-${name}`;
   const zip = createZip([
@@ -99,4 +111,19 @@ export async function buildShortlist(dir, options = {}) {
   const zipPath = path.join(dir, `${folder}.zip`);
   fs.writeFileSync(zipPath, zip);
   return { zipPath, count: posts.length, megabytes: zip.length / 1024 / 1024 };
+}
+
+// Every post that wasn't skipped, as a PDF and an HTML page saved in the batch folder.
+export async function buildDrafts(dir) {
+  const name = path.basename(dir);
+  const posts = shortlistPosts(readBatch(dir), { all: true });
+  if (posts.length === 0) throw new Error('There are no posts to export.');
+  const pngs = readImages(dir, posts);
+  const { html, pdf } = await renderPages(name, posts, pngs, { title: 'LinkedIn drafts', withImagesFolder: false });
+
+  const pdfPath = path.join(dir, `forethrive-drafts-${name}.pdf`);
+  const htmlPath = path.join(dir, `forethrive-drafts-${name}.html`);
+  fs.writeFileSync(pdfPath, pdf);
+  fs.writeFileSync(htmlPath, html);
+  return { pdfPath, htmlPath, count: posts.length, megabytes: (pdf.length + html.length) / 1024 / 1024 };
 }
