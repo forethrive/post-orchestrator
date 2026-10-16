@@ -15,13 +15,26 @@ import {
 
 const EMOJI = /\p{Extended_Pictographic}/u;
 const countWords = (text) => text.trim().split(/\s+/).filter(Boolean).length;
-const normaliseUrl = (url) => url.trim().replace(/\/+$/, '');
+export const normaliseUrl = (url) => url.trim().replace(/\/+$/, '');
 
 // Every URL listed in brand/facts.md. A post may only cite sources from there.
 export function loadFactUrls() {
   const file = path.join(ROOT, 'brand', 'facts.md');
   const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
   return new Set((text.match(/https?:\/\/[^\s)>\]]+/g) ?? []).map(normaliseUrl));
+}
+
+// The sources a batch may cite: brand/facts.md, plus the facts the Research
+// agent checked for that batch (saved in its research.json).
+export function loadAllowedUrls(batchDir) {
+  const urls = loadFactUrls();
+  const file = path.join(batchDir, 'research.json');
+  if (fs.existsSync(file)) {
+    for (const fact of JSON.parse(fs.readFileSync(file, 'utf8')).verifiedFacts ?? []) {
+      urls.add(normaliseUrl(fact.url));
+    }
+  }
+  return urls;
 }
 
 // Returns a list of problems with the post; an empty list means it passes.
@@ -99,7 +112,7 @@ export function checkPost(post, factUrls) {
     if (!/^https?:\/\//.test(source.url ?? '')) {
       problems.push(`source "${source.title}" needs a url`);
     } else if (!factUrls.has(normaliseUrl(source.url))) {
-      problems.push(`source ${source.url} isn't in brand/facts.md (use only checked facts)`);
+      problems.push(`source ${source.url} isn't in brand/facts.md or this batch's checked research`);
     }
   }
 

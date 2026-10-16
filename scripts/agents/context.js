@@ -35,6 +35,18 @@ function history() {
     .join('\n');
 }
 
+export function researchInstructions() {
+  const recent = pastPosts()
+    .slice(-HISTORY_LIMIT)
+    .map((p) => `- ${p.image.headline}`)
+    .join('\n');
+  return [
+    read('brand/research-rules.md'),
+    `# About Forethrive\n\n${read('brand/company.md')}`,
+    `# Already posted or drafted\n\n${recent || 'Nothing yet.'}`,
+  ].join('\n\n');
+}
+
 export function writerInstructions(brief = '') {
   const ideas = read('brand/ideas.md');
   const sections = [

@@ -88,7 +88,9 @@ export function buildWriterGraph(model) {
     const pending = state.pending.filter((id) => !accepted.some((p) => p.id === id));
     for (const id of pending) problems[id] ??= ['missing from the reply'];
     console.log(`  ${accepted.length} passed the checks${pending.length ? `, ${pending.length} to fix` : ''}.`);
-    return { posts: [...state.posts, ...accepted], pending, problems };
+    // Keep the posts in id order, even when a fixed post passes after later ones.
+    const posts = [...state.posts, ...accepted].sort((a, b) => a.id.localeCompare(b.id));
+    return { posts, pending, problems };
   }
 
   function requestFixes(state) {
