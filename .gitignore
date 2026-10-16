@@ -9,3 +9,7 @@ brand/ideas.md
 
 # API keys for npm run generate.
 .env
+
+# The Python environment for the agents.
+.venv/
+__pycache__/
