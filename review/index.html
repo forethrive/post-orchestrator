@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forethrive Post Review</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#03061a;--card:#0b1030;--line:rgba(255,255,255,.1);--tx:#f4f6ff;--mu:#9aa3c7;--cyan:#08d4ff;--grad:linear-gradient(90deg,#7a3cff,#2a6bff,#08d4ff)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--tx);font-family:'Manrope',system-ui,sans-serif;line-height:1.6;overflow-x:hidden}
+.w{width:min(1100px,100% - 32px);margin:auto}
+header{padding:36px 0 8px}
+h1{font-size:clamp(1.7rem,4vw,2.4rem);font-weight:600;letter-spacing:-.03em}
+.lead{color:var(--mu);margin-top:8px;font-weight:300}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+button{font:inherit;cursor:pointer;color:var(--tx)}
+.filters button,.actions button{padding:8px 16px;border-radius:999px;border:1px solid var(--line);background:none;font-size:.85rem}
+.filters button.on{background:var(--grad);border-color:transparent}
+.posts{display:grid;gap:22px;margin:26px 0 10px}
+.post{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px;display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:28px}
+.post[data-status=skipped]{opacity:.55}
+.post img{width:100%;height:auto;border-radius:10px;display:block}
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:.85rem;color:var(--mu)}
+.meta b{color:var(--tx);font-weight:600}
+.pill{padding:2px 12px;border-radius:999px;border:1px solid var(--line)}
+.pill.approved{border-color:var(--cyan);color:var(--cyan)}
+.pill.posted{background:var(--grad);border-color:transparent;color:#fff}
+.angle{margin-top:10px;color:var(--mu);font-size:.92rem}
+h3{font-size:.78rem;font-weight:600;color:var(--mu);letter-spacing:.02em;margin:18px 0 6px}
+pre{white-space:pre-wrap;word-break:break-word;font:inherit;font-size:.92rem;color:#dfe3f7;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.copy{margin-top:8px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:none;font-size:.8rem}
+ul{padding-left:18px;font-size:.88rem}
+a{color:var(--cyan)}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:20px}
+.actions button.on{background:var(--grad);border-color:transparent}
+.actions a{font-size:.85rem;margin-left:4px}
+.empty{color:var(--mu);padding:30px 0}
+footer{padding:30px 0 60px;color:var(--mu);font-size:.9rem}
+footer h2{font-size:1.1rem;font-weight:600;color:var(--tx);margin-bottom:8px}
+footer ol{padding-left:20px;display:grid;gap:4px}
+@media(max-width:760px){.post{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="w">
+  <h1>Review posts</h1>
+  <p class="lead" id="intro">Loading the batch…</p>
+  <nav class="filters" id="filters"></nav>
+</header>
+<main class="w"><div class="posts" id="posts"></div></main>
+<footer class="w">
+  <h2>Posting an approved draft</h2>
+  <ol>
+    <li>Download the image.</li>
+    <li>On LinkedIn, switch to the Forethrive page and start a post.</li>
+    <li>Add the image and paste the caption, then post it.</li>
+    <li>Add the first comment, which has the link.</li>
+    <li>Come back here and mark it posted, so the next batch doesn't repeat it.</li>
+  </ol>
+</footer>
+<script>
+var STATUS_NAMES = { draft: 'Draft', approved: 'Approved', skipped: 'Skipped', posted: 'Posted' };
+var FILTERS = ['all', 'draft', 'approved', 'skipped', 'posted'];
+var state = { name: '', posts: [], filter: 'all' };
+// Makes sure freshly redrawn images aren't served from the browser's cache.
+var version = Date.now();
+
+function esc(text) {
+  return String(text == null ? '' : text).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function count(status) {
+  return state.posts.filter(function (p) { return status === 'all' || p.status === status; }).length;
+}
+
+function render() {
+  document.getElementById('intro').textContent =
+    'Batch ' + state.name + ': ' + state.posts.length + ' drafts. Approve the best, skip the rest.';
+
+  document.getElementById('filters').innerHTML = FILTERS.map(function (f) {
+    var label = f === 'all' ? 'All' : STATUS_NAMES[f];
+    return '<button data-filter="' + f + '" class="' + (state.filter === f ? 'on' : '') + '">' +
+      label + ' (' + count(f) + ')</button>';
+  }).join('');
+
+  var shown = state.posts.filter(function (p) { return state.filter === 'all' || p.status === state.filter; });
+  document.getElementById('posts').innerHTML = shown.length ? shown.map(card).join('') :
+    '<p class="empty">Nothing here yet.</p>';
+}
+
+function card(post) {
+  var img = '/images/' + esc(post.imageFile) + '?v=' + version;
+  var sources = (post.sources || []).map(function (s) {
+    return '<li><a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.title || s.url) + '</a></li>';
+  }).join('');
+  var buttons = ['approved', 'skipped', 'posted'].map(function (s) {
+    var label = { approved: 'Approve', skipped: 'Skip', posted: 'Mark posted' }[s];
+    return '<button data-id="' + esc(post.id) + '" data-status="' + s + '" class="' +
+      (post.status === s ? 'on' : '') + '">' + label + '</button>';
+  }).join('');
+
+  return '<article class="post" data-status="' + esc(post.status) + '">' +
+    '<a href="' + img + '" target="_blank"><img src="' + img + '" alt="' + esc(post.image.headline) + '"></a>' +
+    '<div>' +
+      '<div class="meta"><b>' + esc(post.id) + '</b><span>' + esc(post.type) + '</span>' +
+        '<span class="pill ' + esc(post.status) + '">' + esc(STATUS_NAMES[post.status]) + '</span></div>' +
+      (post.angle ? '<p class="angle">' + esc(post.angle) + '</p>' : '') +
+      '<h3>Caption</h3><pre>' + esc(post.captionText) + '</pre>' +
+      '<button class="copy" data-copy="caption" data-id="' + esc(post.id) + '">Copy caption</button>' +
+      '<h3>First comment</h3><pre>' + esc(post.firstComment) + '</pre>' +
+      '<button class="copy" data-copy="comment" data-id="' + esc(post.id) + '">Copy comment</button>' +
+      (post.fromIdea ? '<h3>From the ideas list</h3><p>' + esc(post.fromIdea) + '</p>' : '') +
+      (sources ? '<h3>Sources</h3><ul>' + sources + '</ul>' : '') +
+      '<div class="actions">' + buttons +
+        '<a href="' + img + '" download="forethrive-' + esc(post.id) + '.png">Download image</a></div>' +
+    '</div></article>';
+}
+
+function findPost(id) {
+  return state.posts.filter(function (p) { return p.id === id; })[0];
+}
+
+function setStatus(id, status) {
+  var post = findPost(id);
+  // Clicking the current status again puts the post back to draft.
+  var next = post.status === status ? 'draft' : status;
+  fetch('/status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: id, status: next })
+  }).then(function (res) {
+    if (!res.ok) throw new Error('Could not save');
+    post.status = next;
+    render();
+  }).catch(function () { alert('Could not save that change. Is the review server still running?'); });
+}
+
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.filter) { state.filter = b.dataset.filter; render(); }
+  else if (b.dataset.status) setStatus(b.dataset.id, b.dataset.status);
+  else if (b.dataset.copy) {
+    var post = findPost(b.dataset.id);
+    var text = b.dataset.copy === 'caption' ? post.captionText : post.firstComment;
+    navigator.clipboard.writeText(text).then(function () {
+      var old = b.textContent;
+      b.textContent = 'Copied';
+      setTimeout(function () { b.textContent = old; }, 1500);
+    });
+  }
+});
+
+fetch('/batch').then(function (r) { return r.json(); }).then(function (data) {
+  state.name = data.name;
+  state.posts = data.posts;
+  render();
+}).catch(function () {
+  document.getElementById('intro').textContent = 'Could not load the batch. Is the review server running?';
+});
+</script>
+</body>
+</html>
