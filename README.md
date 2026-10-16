@@ -17,22 +17,26 @@ Nothing is posted automatically. People choose and post every draft.
    `brand/company.md`, the team's ideas in `brand/ideas.md`, and every earlier
    batch, so it doesn't repeat itself.
 2. **Research.** It searches the web for recent, useful AI material for
-   business owners. Any number it uses comes from a source it opened.
+   business owners. Any number it uses comes from a source it opened, and it
+   adds each one to `brand/facts.md`, the list of checked facts.
 3. **Plan and write.** It writes 14 varied drafts. For each one it fills in
    Post Studio's fields (label, big number, headline, supporting line) and
    writes the caption and first comment.
 4. **Check.** `npm run validate` tests every draft against the brand guide. That
    covers headline length, the 125-character hook, allowed hashtags, banned
-   buzzwords, no emojis in images, and no numbers without a source. Claude fixes
-   anything that fails.
+   buzzwords, no emojis in images, no numbers without a source, and no source
+   that isn't in `brand/facts.md`. Claude fixes anything that fails.
 5. **Draw.** `npm run render` opens Post Studio in a hidden Chrome window and
    saves each image, so they match images made by hand exactly.
 6. **Review.** `npm run review` opens a page on this Mac. You approve the best
    drafts, skip the rest, and mark them posted once they're live.
 
 **Claude never invents facts.** It writes AI-insight and Stat posts by itself.
-Client wins, announcements and hiring posts come only from what the team writes
-in `brand/ideas.md`. Clients are named only when the idea says that's allowed.
+Numbers come only from `brand/facts.md`, where each one is listed with the
+source someone opened and checked. Client wins, announcements and hiring posts
+come only from what the team writes in `brand/ideas.md`. Clients are named only
+when the idea says that's allowed. All of these rules are in
+`brand/writing-rules.md`.
 
 ## Setting up a Mac (once)
 
@@ -80,10 +84,12 @@ Each command works on the newest batch unless you name another one, for example
 | --- | --- |
 | `post-studio.html` | Post Studio. Open it in a browser to make a post by hand. |
 | `.claude/skills/generate-posts/SKILL.md` | The generator's step-by-step instructions for Claude |
+| `brand/writing-rules.md` | How to plan and write posts: types, facts, fields, captions |
 | `brand/company.md` | What Forethrive does and who the posts are for |
+| `brand/facts.md` | Checked statistics with their sources. Posts may only cite these. |
 | `brand/ideas.example.md` | The format for `brand/ideas.md` |
 | `brand/rules.js` | The brand guide's limits, used by the validator |
-| `scripts/` | The validate, render and review scripts |
+| `scripts/` | The validate, render and review scripts (shared code in `scripts/lib/`) |
 | `review/index.html` | The review page |
 | `posts/` | One folder per batch, with `posts.json` and the images |
 
@@ -91,8 +97,8 @@ Each command works on the newest batch unless you name another one, for example
 hold client details and unannounced news, and this repository is public. They
 live only on the Mac that makes the posts.
 
-If the brand guide in Post Studio changes, update `brand/rules.js` and the
-generator's instructions to match.
+If the brand guide in Post Studio changes, update `brand/rules.js` and
+`brand/writing-rules.md` to match.
 
 ## To do
 
