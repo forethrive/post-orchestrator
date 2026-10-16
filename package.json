@@ -7,7 +7,8 @@
   "scripts": {
     "validate": "node scripts/validate.js",
     "render": "node scripts/render.js",
-    "review": "node scripts/review.js"
+    "review": "node scripts/review.js",
+    "export": "node scripts/export.js"
   },
   "engines": {
     "node": ">=20"

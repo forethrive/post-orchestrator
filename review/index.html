@@ -36,6 +36,11 @@ a{color:var(--cyan)}
 .actions button.on{background:var(--grad);border-color:transparent}
 .actions a{font-size:.85rem;margin-left:4px}
 .empty{color:var(--mu);padding:30px 0}
+.export{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:18px}
+.export button{padding:10px 20px;border-radius:999px;border:0;background:var(--grad);font-weight:600}
+.export button:disabled{opacity:.5;cursor:default}
+#export-msg{color:var(--mu);font-size:.9rem}
+#export-msg.warn{color:#ffb38a}
 footer{padding:30px 0 60px;color:var(--mu);font-size:.9rem}
 footer h2{font-size:1.1rem;font-weight:600;color:var(--tx);margin-bottom:8px}
 footer ol{padding-left:20px;display:grid;gap:4px}
@@ -47,6 +52,10 @@ footer ol{padding-left:20px;display:grid;gap:4px}
   <h1>Review posts</h1>
   <p class="lead" id="intro">Loading the batch…</p>
   <nav class="filters" id="filters"></nav>
+  <div class="export">
+    <button id="export" disabled>Export shortlist</button>
+    <span id="export-msg">Approve the posts you want, then export them as one zip to email.</span>
+  </div>
 </header>
 <main class="w"><div class="posts" id="posts"></div></main>
 <footer class="w">
@@ -85,6 +94,11 @@ function render() {
     return '<button data-filter="' + f + '" class="' + (state.filter === f ? 'on' : '') + '">' +
       label + ' (' + count(f) + ')</button>';
   }).join('');
+
+  var approved = count('approved');
+  var exportButton = document.getElementById('export');
+  exportButton.textContent = 'Export shortlist (' + approved + ')';
+  exportButton.disabled = approved === 0;
 
   var shown = state.posts.filter(function (p) { return state.filter === 'all' || p.status === state.filter; });
   document.getElementById('posts').innerHTML = shown.length ? shown.map(card).join('') :
@@ -138,10 +152,32 @@ function setStatus(id, status) {
   }).catch(function () { alert('Could not save that change. Is the review server still running?'); });
 }
 
+// Builds the zip on the server, then downloads it.
+function exportShortlist() {
+  var button = document.getElementById('export');
+  var msg = document.getElementById('export-msg');
+  button.disabled = true;
+  msg.className = '';
+  msg.textContent = 'Making the shortlist: PDF, all-in-one page, images and captions…';
+  fetch('/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    .then(function (res) { return res.json(); })
+    .then(function (result) {
+      if (result.error) throw new Error(result.error);
+      msg.className = result.overEmailLimit ? 'warn' : '';
+      msg.textContent = 'Saved ' + result.file + ' (' + result.megabytes + ' MB) and downloaded it. ' +
+        (result.overEmailLimit ? 'That is near the 25 MB email limit: approve fewer posts, or share a link instead.'
+          : 'Attach it to an email.');
+      window.location.href = '/export/download';
+    })
+    .catch(function (error) { msg.className = 'warn'; msg.textContent = error.message; })
+    .then(function () { button.disabled = count('approved') === 0; });
+}
+
 document.addEventListener('click', function (e) {
   var b = e.target.closest('button');
   if (!b) return;
-  if (b.dataset.filter) { state.filter = b.dataset.filter; render(); }
+  if (b.id === 'export') exportShortlist();
+  else if (b.dataset.filter) { state.filter = b.dataset.filter; render(); }
   else if (b.dataset.status) setStatus(b.dataset.id, b.dataset.status);
   else if (b.dataset.copy) {
     var post = findPost(b.dataset.id);

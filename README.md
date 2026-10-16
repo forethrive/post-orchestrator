@@ -69,19 +69,31 @@ Then it writes 14 varied drafts, checks them, draws them and opens the review
 page. A batch takes a few minutes. See
 [How the generator works](#how-the-generator-works).
 
-### Reviewing and posting
+### Reviewing, sharing and posting
 
 After polishing or generating, the review page opens at http://localhost:4400.
 
 1. Approve the drafts you want and skip the rest. Clicking a button again
    undoes it.
-2. To post an approved draft:
+2. To share the shortlist, click **Export shortlist**. It saves and downloads
+   one zip of the approved posts, ready to attach to an email:
+
+   | In the zip | For |
+   | --- | --- |
+   | `shortlist.pdf` | Reading and approving. One post per page, opens in any mail app or phone. |
+   | `shortlist.html` | Everything in one file, with copy and download buttons. Opens in any browser. |
+   | `images/` | The full-quality PNGs to post |
+   | `captions.txt` | Every caption and first comment, numbered |
+
+   A batch of 14 comes to about 15 MB, under Gmail's 25 MB limit. From a
+   terminal, `npm run export` does the same.
+3. To post an approved draft:
    1. Download the image.
    2. On LinkedIn, switch to the Forethrive page and start a post.
    3. Add the image and paste the caption, then post it.
    4. Paste the first comment, which has the link.
    5. Mark it posted on the review page, so later batches don't repeat it.
-3. Stop the review page with Ctrl+C in its terminal. Open it again later with
+4. Stop the review page with Ctrl+C in its terminal. Open it again later with
    `npm run review`.
 
 ## Setting up a computer (once)
@@ -171,6 +183,7 @@ Clients are named only when the idea or draft does. All of these rules are in
 | `npm run validate` | Checks the newest batch against the brand guide |
 | `npm run render` | Draws the newest batch's images with Post Studio |
 | `npm run review` | Opens the review page for the newest batch |
+| `npm run export` | Exports the newest batch's approved posts as a zip to share (`-- --all` for every post not skipped) |
 
 Each command works on the newest batch unless you name another one, for example
 `npm run review -- posts/2026-10-13`.
@@ -193,6 +206,7 @@ Each command works on the newest batch unless you name another one, for example
 | `.env.example` | The settings template for the Python agents |
 | `scripts/` | The validate, render and review scripts (shared code in `scripts/lib/`) |
 | `review/index.html` | The review page |
+| `review/shortlist.html` | The design of the exported shortlist (HTML and PDF) |
 | `posts/` | One folder per batch, with `posts.json` and the images |
 
 `.env`, `brand/ideas.md` and `posts/` are never committed (see `.gitignore`).

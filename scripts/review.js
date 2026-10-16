@@ -1,6 +1,7 @@
 // A small web server for reviewing a batch on this Mac: see each post, copy its
-// caption and mark it approved, skipped or posted. Changes are saved straight
-// into the batch's posts.json.
+// caption, mark it approved, skipped or posted, and export the approved ones
+// as a shortlist to share. Changes are saved straight into the batch's
+// posts.json.
 // Usage: npm run review              (newest batch)
 //        npm run review -- posts/2026-10-13
 import fs from 'node:fs';
@@ -8,6 +9,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { ROOT, findBatch, readBatch, writeBatch, imageFile, captionText } from './lib/batch.js';
+import { buildShortlist, EMAIL_LIMIT_MB } from './lib/shortlist.js';
 import { STATUSES } from '../brand/rules.js';
 
 const PORT = 4400;
@@ -15,13 +17,35 @@ const HOSTS = [`localhost:${PORT}`, `127.0.0.1:${PORT}`];
 const args = process.argv.slice(2);
 const dir = findBatch(args.find((arg) => !arg.startsWith('--')));
 const reviewPage = fs.readFileSync(path.join(ROOT, 'review', 'index.html'));
+let lastExport = null;
 
 function send(res, status, type, body) {
   res.writeHead(status, { 'Content-Type': type });
   res.end(body);
 }
 
-const server = http.createServer((req, res) => {
+function sendJson(res, status, value) {
+  send(res, status, 'application/json', JSON.stringify(value));
+}
+
+// Reads a JSON request body. Requiring JSON means a browser won't let another
+// website send these requests.
+function readJson(req) {
+  return new Promise((resolve, reject) => {
+    if (req.headers['content-type'] !== 'application/json') return reject(new Error('Expected JSON'));
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString() || '{}'));
+      } catch {
+        reject(new Error('Bad JSON'));
+      }
+    });
+  });
+}
+
+async function handle(req, res) {
   // Only answer requests addressed to this Mac, so other websites can't use it.
   if (!HOSTS.includes(req.headers.host)) return send(res, 403, 'text/plain', 'Forbidden');
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -37,7 +61,7 @@ const server = http.createServer((req, res) => {
       captionText: captionText(post),
       imageFile: imageFile(post),
     }));
-    return send(res, 200, 'application/json', JSON.stringify({ name: path.basename(dir), posts }));
+    return sendJson(res, 200, { name: path.basename(dir), posts });
   }
 
   const image = url.pathname.match(/^\/images\/([\w-]+\.png)$/);
@@ -47,28 +71,47 @@ const server = http.createServer((req, res) => {
     return send(res, 200, 'image/png', fs.readFileSync(file));
   }
 
-  // Requiring JSON means a browser won't let another website send this request.
-  if (req.method === 'POST' && url.pathname === '/status' && req.headers['content-type'] === 'application/json') {
-    let body = '';
-    req.on('data', (chunk) => (body += chunk));
-    req.on('end', () => {
-      let id, status;
-      try {
-        ({ id, status } = JSON.parse(body));
-      } catch {
-        return send(res, 400, 'text/plain', 'Bad request');
-      }
-      const batch = readBatch(dir);
-      const post = batch.posts.find((p) => p.id === id);
-      if (!post || !STATUSES.includes(status)) return send(res, 400, 'text/plain', 'Unknown post or status');
-      post.status = status;
-      writeBatch(dir, batch);
-      send(res, 200, 'application/json', JSON.stringify({ id, status }));
+  if (req.method === 'POST' && url.pathname === '/status') {
+    const { id, status } = await readJson(req);
+    const batch = readBatch(dir);
+    const post = batch.posts.find((p) => p.id === id);
+    if (!post || !STATUSES.includes(status)) return send(res, 400, 'text/plain', 'Unknown post or status');
+    post.status = status;
+    writeBatch(dir, batch);
+    return sendJson(res, 200, { id, status });
+  }
+
+  // Builds the shortlist zip from the approved posts, then the page downloads it.
+  if (req.method === 'POST' && url.pathname === '/export') {
+    await readJson(req);
+    try {
+      lastExport = await buildShortlist(dir);
+    } catch (error) {
+      return sendJson(res, 400, { error: error.message });
+    }
+    return sendJson(res, 200, {
+      file: path.relative(ROOT, lastExport.zipPath),
+      count: lastExport.count,
+      megabytes: Number(lastExport.megabytes.toFixed(1)),
+      overEmailLimit: lastExport.megabytes > EMAIL_LIMIT_MB - 1,
     });
-    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/export/download' && lastExport) {
+    res.writeHead(200, {
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${path.basename(lastExport.zipPath)}"`,
+    });
+    return res.end(fs.readFileSync(lastExport.zipPath));
   }
 
   send(res, 404, 'text/plain', 'Not found');
+}
+
+const server = http.createServer((req, res) => {
+  handle(req, res).catch(() => {
+    if (!res.headersSent) send(res, 400, 'text/plain', 'Bad request');
+  });
 });
 
 server.on('error', (error) => {
