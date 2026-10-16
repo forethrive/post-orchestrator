@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "generate": "node scripts/generate.js",
+    "polish": "node scripts/polish.js",
     "validate": "node scripts/validate.js",
     "render": "node scripts/render.js",
     "review": "node scripts/review.js"

@@ -1,51 +1,87 @@
 # Post orchestrator
 
-Forethrive's kit for LinkedIn posts:
-
-- **Post Studio** (`post-studio.html`) gives every post the same look. It's the
-  brand guide for social posts and the tool that draws post images.
-- **The generator** decides what to post, writes it, and draws the images with
-  Post Studio. It drafts a batch of 14 posts, the team picks the best ones on a
-  review page, and someone posts them on the Forethrive company page.
+Forethrive's kit for LinkedIn posts. Every post gets the same look from **Post
+Studio** (`post-studio.html`), the brand guide and image tool for social posts.
+On top of it, a generator can decide what to post and write it, or polish
+something you've drafted.
 
 Nothing is posted automatically. People choose and post every draft.
 
-There are two ways to run the generator:
+## How to use it
 
-| | **`npm run generate`** | **`/generate-posts` in Claude Code** |
+Pick the row that fits what you have:
+
+| You have… | Do this | You get |
 | --- | --- | --- |
-| Needs | An API key from OpenAI, Gemini, Groq or Anthropic | The Claude desktop app |
-| Who writes | The Research and Writer agents, built with LangGraph | Claude, following `.claude/skills/generate-posts` |
-| Research | The Research agent searches the web with a Tavily key (or uses `brand/facts.md` without one) | Claude searches the web and adds new facts to `brand/facts.md` |
+| Finished words for a post | Open `post-studio.html` and fill it in by hand | One image, in a minute |
+| A rough idea or write-up for a post | **Claude:** `/polish-post` · **API key:** `npm run polish -- my-draft.txt` | Your post, polished and ready: image, caption and first comment |
+| Nothing yet ("give us ideas") | **Claude:** `/generate-posts` · **API key:** `npm run generate` | A researched batch of 14 drafts to pick from |
 
-Both follow the same rules (`brand/writing-rules.md`), pass the same checks,
-draw with the same Post Studio, and open the same review page.
+- **Claude** means the Claude desktop app's Code tab, opened in this folder.
+- **API key** means a key from OpenAI, Gemini, Groq or Anthropic in a `.env`
+  file (see [Setting up a computer](#setting-up-a-computer-once)).
 
-## How the generator works
+Both follow the same writing rules, pass the same checks and draw with the same
+Post Studio.
 
-1. **Read.** It reads the brand guide in Post Studio, the company notes in
-   `brand/company.md`, the checked facts in `brand/facts.md`, the team's ideas
-   in `brand/ideas.md`, and every earlier batch, so it doesn't repeat itself.
-2. **Research.** It searches the web for recent AI news, numbers from primary
-   sources, and what similar companies are posting on LinkedIn. Every number
-   is checked against the page it came from.
-3. **Plan and write.** It writes 14 varied drafts. For each one it fills in
-   Post Studio's fields (label, big number, headline, supporting line) and
-   writes the caption and first comment.
-4. **Check.** Every draft is tested against the brand guide. That covers
-   headline length, the 125-character hook, allowed hashtags, banned buzzwords,
-   no emojis in images, no numbers without a source, and no source that isn't
-   a checked fact. Drafts that fail go back to be fixed.
-5. **Draw.** Post Studio draws each image in a hidden Chrome window, so they
-   match images made by hand exactly.
-6. **Review.** A page opens at http://localhost:4400. You approve the best
-   drafts, skip the rest, and mark them posted once they're live.
+### I have the finished words: fill in Post Studio by hand
 
-**Nothing is invented.** Numbers come only from `brand/facts.md`, where each
-one is listed with the source someone opened and checked, or from research
-whose quotes were matched to their pages. Client wins,
-announcements and hiring posts come only from what the team writes in
-`brand/ideas.md`. Clients are named only when the idea says that's allowed.
+1. Open `post-studio.html` in Chrome (double-click it).
+2. Pick a post type: Announcement, AI insight, Stat, Client win or Hiring. It
+   fills in an example for you to replace.
+3. Type the label, the big number (optional), the headline and the supporting
+   line. The preview updates as you type.
+4. Choose portrait (best for LinkedIn) or square, and click **Download image
+   (PNG)**.
+5. Write the caption using the caption format further down the page. That
+   means a hook under 125 characters, a few short lines, one action, and up to
+   three hashtags, with the link going in the first comment.
+
+### I have a rough idea: polish it into a post
+
+Write roughly what you want to say, in a text file or straight into the
+command: the point, the facts, who it's for. For example:
+
+> Client win we want to share. A logistics client had 3 people typing invoices
+> into their ERP. We built a document AI that reads them and fills the ERP, with
+> a person checking unsure ones. Invoice work went from 3 days to 4 hours a
+> week. We can't name the client.
+
+- **With Claude:** type `/polish-post` and paste the draft, or give the file's
+  path. Ask for "3 versions" to get a few to choose from.
+- **With an API key:** run `npm run polish -- my-draft.txt`, or put the text
+  itself in quotes. Add `--versions 3` for a few to choose from.
+
+It keeps your message and your facts, and improves the hook, the wording and
+the structure. It fills in every Post Studio field and writes the caption and
+first comment. It can't add numbers that aren't in your draft or in
+`brand/facts.md`, because the check rejects them. Then the image is drawn and
+the review page opens.
+
+### I want ideas: generate a batch
+
+- **With Claude:** type `/generate-posts` (or `/generate-posts 6` for fewer).
+- **With an API key:** run `npm run generate` (add `-- --count 6` for fewer).
+
+It researches recent AI news, checked numbers and what similar companies post.
+Then it writes 14 varied drafts, checks them, draws them and opens the review
+page. A batch takes a few minutes. See
+[How the generator works](#how-the-generator-works).
+
+### Reviewing and posting
+
+After polishing or generating, the review page opens at http://localhost:4400.
+
+1. Approve the drafts you want and skip the rest. Clicking a button again
+   undoes it.
+2. To post an approved draft:
+   1. Download the image.
+   2. On LinkedIn, switch to the Forethrive page and start a post.
+   3. Add the image and paste the caption, then post it.
+   4. Paste the first comment, which has the link.
+   5. Mark it posted on the review page, so later batches don't repeat it.
+3. Stop the review page with Ctrl+C in its terminal. Open it again later with
+   `npm run review`.
 
 ## Setting up a computer (once)
 
@@ -56,7 +92,12 @@ announcements and hiring posts come only from what the team writes in
 3. Copy `brand/ideas.example.md` to `brand/ideas.md` and add real projects,
    wins, news and open roles.
 4. Check the items marked "Not confirmed" in `brand/company.md`.
-5. Then set up one of the two ways below.
+5. Then set up Claude, an API key, or both.
+
+### With Claude
+
+Install the Claude desktop app and sign in. Open this folder in its Code tab;
+`/generate-posts` and `/polish-post` are ready to use.
 
 ### With an API key
 
@@ -79,35 +120,35 @@ announcements and hiring posts come only from what the team writes in
 4. To use a different model, set `LLM_MODEL`.
 
 **What gets sent where:** the AI provider receives the brand guide,
-`brand/company.md`, `brand/facts.md`, `brand/ideas.md`, earlier posts and the
-research. The ideas list can hold client details, so check your provider's data
-terms. Some free tiers use what you send to improve their models. Tavily
-receives only the search queries and the links the agent reads.
+`brand/company.md`, `brand/facts.md`, `brand/ideas.md`, earlier posts, the
+research and your drafts. The ideas list can hold client details, so check your
+provider's data terms. Some free tiers use what you send to improve their
+models. Tavily receives only the search queries and the links the agent reads.
 
-### With Claude Code
+## How the generator works
 
-Install the Claude desktop app and sign in. The generator runs in its Code tab.
+1. **Read.** It reads the brand guide in Post Studio, the company notes in
+   `brand/company.md`, the checked facts in `brand/facts.md`, the team's ideas
+   in `brand/ideas.md`, and every earlier batch, so it doesn't repeat itself.
+2. **Research.** It searches the web for recent AI news, numbers from primary
+   sources, and what similar companies are posting on LinkedIn. Every number
+   is checked against the page it came from.
+3. **Plan and write.** It writes 14 varied drafts. For each one it fills in
+   Post Studio's fields (label, big number, headline, supporting line) and
+   writes the caption and first comment.
+4. **Check.** Every draft is tested against the brand guide. That covers
+   headline length, the 125-character hook, allowed hashtags, banned buzzwords,
+   no emojis in images, no numbers without a source, and no source that isn't
+   a checked fact. Drafts that fail go back to be fixed.
+5. **Draw.** Post Studio draws each image in a hidden Chrome window, so they
+   match images made by hand exactly.
+6. **Review.** The review page opens for you to pick the best.
 
-## Making a batch of posts
-
-1. Start the generator:
-   - With an API key: run `npm run generate`. Add `-- --count 6` for a
-     different number of drafts.
-   - With Claude Code: open this folder in the Code tab and type
-     `/generate-posts` (or `/generate-posts 6`).
-
-   A batch takes a few minutes.
-2. The review page opens at http://localhost:4400.
-3. Approve the drafts you want and skip the rest. Clicking a button again
-   undoes it.
-4. To post an approved draft:
-   1. Download the image.
-   2. On LinkedIn, switch to the Forethrive page and start a post.
-   3. Add the image and paste the caption, then post it.
-   4. Paste the first comment, which has the link.
-   5. Mark it posted on the review page.
-5. Stop the review page with Ctrl+C in its terminal. Open it again later with
-   `npm run review`.
+**Nothing is invented.** Numbers come only from `brand/facts.md`, where each
+one is listed with the source someone opened and checked, or from research
+whose quotes were matched to their pages. Client wins, announcements and hiring
+posts come only from what the team writes in `brand/ideas.md` or in a draft.
+Clients are named only when the idea or draft does.
 
 ## The agents
 
@@ -192,11 +233,17 @@ flowchart LR
 - **request_fixes** sends failing posts back with the problems listed. After
   two tries, **give_up** drops a post rather than save a bad one.
 
+`npm run polish` uses the same Writer agent with your draft instead of a
+brief. It writes one post (or a few versions) from the draft. On top of the
+usual checks, it rejects any number that isn't in the draft or
+`brand/facts.md`.
+
 ## Commands
 
 | Command | What it does |
 | --- | --- |
 | `npm run generate` | Researches and writes a batch with your API keys, draws it and opens the review page. Add `-- --no-research` to skip the research. |
+| `npm run polish -- my-draft.txt` | Turns your rough draft into a polished post. Add `--versions 3` for a few to choose from. |
 | `npm run validate` | Checks the newest batch against the brand guide |
 | `npm run render` | Draws the newest batch's images with Post Studio |
 | `npm run review` | Opens the review page for the newest batch |
@@ -216,9 +263,9 @@ example `npm run review -- posts/2026-10-13`.
 | `brand/ideas.example.md` | The format for `brand/ideas.md` |
 | `brand/rules.js` | The brand guide's limits, used by the checks |
 | `scripts/agents/` | The Research and Writer agents, the fact check, and the provider settings |
-| `scripts/` | The generate, validate, render and review commands (shared code in `scripts/lib/`) |
-| `.claude/skills/generate-posts/SKILL.md` | The generator's instructions for Claude Code |
-| `.env.example` | The settings template for `npm run generate` |
+| `scripts/` | The generate, polish, validate, render and review commands (shared code in `scripts/lib/`) |
+| `.claude/skills/` | Instructions for Claude Code: `generate-posts` and `polish-post` |
+| `.env.example` | The settings template for `npm run generate` and `npm run polish` |
 | `review/index.html` | The review page |
 | `posts/` | One folder per batch, with `posts.json`, the images and any research |
 
