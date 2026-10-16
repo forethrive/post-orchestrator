@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forethrive LinkedIn shortlist</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#ffffff;--card:#f6f7fc;--line:#dfe2ef;--tx:#03061a;--mu:#5b6384;--accent:#2a6bff;--grad:linear-gradient(90deg,#7a3cff,#2a6bff,#08d4ff)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--tx);font-family:'Manrope',system-ui,sans-serif;line-height:1.6}
+.w{width:min(860px,100% - 32px);margin:auto}
+header{padding:36px 0 8px}
+.bar{height:4px;background:var(--grad);border-radius:2px;margin-bottom:22px}
+h1{font-size:clamp(1.6rem,4vw,2.2rem);font-weight:600;letter-spacing:-.02em}
+.meta{color:var(--mu);margin-top:6px}
+.how{margin-top:16px;color:var(--mu);font-size:.92rem}
+.how ol{padding-left:20px}
+.post{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;margin:22px 0;display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:24px}
+.post img{width:100%;height:auto;border-radius:8px;display:block}
+.tag{font-size:.82rem;color:var(--mu)}
+.tag b{color:var(--tx)}
+.angle{color:var(--mu);font-size:.9rem;margin-top:6px}
+h3{font-size:.78rem;font-weight:600;color:var(--mu);margin:16px 0 6px}
+pre{white-space:pre-wrap;word-break:break-word;font:inherit;font-size:.92rem;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+button,.dl{font:inherit;font-size:.8rem;margin-top:8px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--tx);cursor:pointer;text-decoration:none;display:inline-block}
+ul{padding-left:18px;font-size:.85rem}
+a{color:var(--accent);overflow-wrap:anywhere}
+footer{color:var(--mu);font-size:.85rem;padding:10px 0 50px}
+@media(max-width:700px){.post{grid-template-columns:1fr}}
+@media print{
+  .how,button,.dl{display:none}
+  header{padding-top:0}
+  .post{break-after:page;break-inside:avoid;border:0;background:none;padding:0;margin:0;grid-template-columns:290px minmax(0,1fr);gap:18px}
+  .post:last-child{break-after:auto}
+  pre{font-size:9pt;padding:8px 10px}
+  h3{margin:10px 0 4px}
+}
+</style>
+</head>
+<body>
+<header class="w">
+  <div class="bar"></div>
+  <h1 id="title">LinkedIn shortlist</h1>
+  <p class="meta" id="meta"></p>
+  <div class="how">
+    <p>To post one:</p>
+    <ol>
+      <li id="step-image">Download the image (or use the PNG in the <code>images</code> folder).</li>
+      <li>On LinkedIn, switch to the Forethrive page and start a post.</li>
+      <li>Add the image and paste the caption, then post it.</li>
+      <li>Paste the first comment, which has the link.</li>
+    </ol>
+  </div>
+</header>
+<main class="w" id="posts"></main>
+<footer class="w" id="footer">Made with Post Studio. Images here are compressed for sharing; full-quality PNGs are in the images folder.</footer>
+<script id="shortlist-data" type="application/json">/*DATA*/</script>
+<script>
+var data = JSON.parse(document.getElementById('shortlist-data').textContent);
+
+function esc(text) {
+  return String(text == null ? '' : text).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+// The same page is used for the approved shortlist and for the weekly drafts.
+document.title = 'Forethrive ' + data.title;
+document.getElementById('title').textContent = data.title;
+if (!data.withImagesFolder) {
+  document.getElementById('step-image').textContent = 'Download the image.';
+  document.getElementById('footer').textContent =
+    'Made with Post Studio. Images here are compressed for sharing; the full-quality PNGs are on the computer that made them.';
+}
+
+document.getElementById('meta').textContent =
+  'Batch ' + data.batch + ' · ' + data.posts.length + (data.posts.length === 1 ? ' post' : ' posts') +
+  ' · exported ' + data.exportedAt;
+
+document.getElementById('posts').innerHTML = data.posts.map(function (post, i) {
+  var sources = (post.sources || []).map(function (s) {
+    return '<li><a href="' + esc(s.url) + '">' + esc(s.title || s.url) + '</a></li>';
+  }).join('');
+  return '<article class="post">' +
+    '<div><img src="' + post.image + '" alt="' + esc(post.headline) + '">' +
+      '<a class="dl" href="' + post.image + '" download="' + esc(post.imageName) + '">Download image</a></div>' +
+    '<div>' +
+      '<p class="tag"><b>' + esc(post.id) + '</b> · ' + esc(post.type) + '</p>' +
+      (post.angle ? '<p class="angle"><b>Why this post:</b> ' + esc(post.angle) + '</p>' : '') +
+      '<h3>Caption</h3><pre>' + esc(post.captionText) + '</pre>' +
+      '<button data-copy="caption" data-i="' + i + '">Copy caption</button>' +
+      '<h3>First comment</h3><pre>' + esc(post.firstComment) + '</pre>' +
+      '<button data-copy="comment" data-i="' + i + '">Copy comment</button>' +
+      (sources ? '<h3>Sources</h3><ul>' + sources + '</ul>' : '') +
+    '</div></article>';
+}).join('');
+
+// Copying from a file opened straight from an email doesn't always allow the
+// modern clipboard, so fall back to the older way.
+function copy(text) {
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+  var area = document.createElement('textarea');
+  area.value = text;
+  document.body.appendChild(area);
+  area.select();
+  document.execCommand('copy');
+  area.remove();
+  return Promise.resolve();
+}
+
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('button[data-copy]');
+  if (!b) return;
+  var post = data.posts[Number(b.dataset.i)];
+  copy(b.dataset.copy === 'caption' ? post.captionText : post.firstComment).then(function () {
+    var old = b.textContent;
+    b.textContent = 'Copied';
+    setTimeout(function () { b.textContent = old; }, 1500);
+  });
+});
+</script>
+</body>
+</html>

@@ -24,7 +24,13 @@ Number of posts: $ARGUMENTS (if that's empty, make 14).
 
 ## 2. Find material
 
-Search the web for recent, useful material for business owners thinking about
+**First, check the Forethrive LinkedIn page.** Search the web for Forethrive's
+recent public LinkedIn posts, for example `site:linkedin.com forethrive` and
+`"Forethrive" LinkedIn AI`, and note their topics and headlines. Don't write
+anything that's the same as or very similar to a post that's already there.
+Use only what search results show: never log in to LinkedIn or open its pages.
+
+Then search the web for recent, useful material for business owners thinking about
 AI, ideally from the last 30 days: what's changed, what works, what fails and
 why, and practical tips.
 

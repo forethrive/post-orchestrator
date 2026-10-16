@@ -21,7 +21,7 @@ from each other, so there's a real choice.
 - One idea per post. Vary the topics, angles and hooks, and link each insight
   to something Forethrive does (see `brand/company.md`) without a hard sell.
 - Don't repeat a topic, hook or headline from an earlier post that was approved
-  or posted. Skipped posts show what the team didn't want, so avoid that too.
+  or posted, or from a post already on the Forethrive LinkedIn page. Skipped posts show what the team didn't want, so avoid that too.
 
 ## Never invent facts
 

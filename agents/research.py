@@ -51,6 +51,9 @@ class ResearchBrief(BaseModel):
     facts: list[Fact]
     inspiration: list[Inspiration]
     angles: list[str] = Field(description="Post ideas for Forethrive that use this material")
+    alreadyOnLinkedIn: list[str] = Field(
+        description="Topics or headlines of posts already on Forethrive's LinkedIn page, from search results"
+    )
 
 
 class ResearchState(TypedDict, total=False):

@@ -24,6 +24,10 @@ accurately.
    `search_linkedin`. Note the themes, formats and kinds of hooks that seem to
    work. This is for ideas only: never copy their wording, and Forethrive's
    posts won't mention them.
+4. **What Forethrive has already posted:** use `search_linkedin` with
+   "Forethrive" to find the company page's public posts. List their topics
+   or headlines in the brief's `alreadyOnLinkedIn`, so the Writer agent
+   doesn't repeat them.
 
 ## How to work
 
@@ -41,10 +45,12 @@ accurately.
 
 ## The brief
 
-When you're done, you write a brief with four parts:
+When you're done, you write a brief with five parts:
 
 - **news:** recent developments worth a post, with the link and date
 - **facts:** numbers, each with the exact quote, source title, link and date
 - **inspiration:** themes and formats seen in similar companies' posts, with
   links
 - **angles:** post ideas for Forethrive that use this material
+- **alreadyOnLinkedIn:** topics or headlines of posts already on Forethrive's
+  LinkedIn page
