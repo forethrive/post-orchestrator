@@ -41,6 +41,16 @@ a{color:var(--cyan)}
 .export button:disabled{opacity:.5;cursor:default}
 #export-msg{color:var(--mu);font-size:.9rem}
 #export-msg.warn{color:#ffb38a}
+.post.editing{border-color:var(--cyan)}
+.edit label{display:grid;gap:4px;font-size:.8rem;color:var(--mu);margin-top:10px}
+.edit input,.edit textarea,.edit select{width:100%;font:inherit;font-size:.92rem;color:var(--tx);background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.edit textarea{resize:vertical}
+.edit select option{background:#0b1030}
+.problems{margin-top:14px;font-size:.85rem;color:#ffb38a;padding-left:18px}
+.problems .ok{color:var(--cyan);list-style:none;margin-left:-18px}
+.actions button.primary{background:var(--grad);border-color:transparent}
+.actions button:disabled{opacity:.45;cursor:default}
+.hint{color:var(--mu);font-size:.8rem;margin-top:8px}
 footer{padding:30px 0 60px;color:var(--mu);font-size:.9rem}
 footer h2{font-size:1.1rem;font-weight:600;color:var(--tx);margin-bottom:8px}
 footer ol{padding-left:20px;display:grid;gap:4px}
@@ -58,6 +68,9 @@ footer ol{padding-left:20px;display:grid;gap:4px}
   </div>
 </header>
 <main class="w"><div class="posts" id="posts"></div></main>
+<!-- Post Studio, kept out of sight, redraws images while a post is being edited. -->
+<iframe id="studio" src="/post-studio.html" title="Post Studio" tabindex="-1" aria-hidden="true"
+  style="position:absolute;left:-9999px;top:0;width:1100px;height:1400px;border:0"></iframe>
 <footer class="w">
   <h2>Posting an approved draft</h2>
   <ol>
@@ -71,7 +84,7 @@ footer ol{padding-left:20px;display:grid;gap:4px}
 <script>
 var STATUS_NAMES = { draft: 'Draft', approved: 'Approved', skipped: 'Skipped', posted: 'Posted' };
 var FILTERS = ['all', 'draft', 'approved', 'skipped', 'posted'];
-var state = { name: '', posts: [], filter: 'all' };
+var state = { name: '', posts: [], filter: 'all', editing: null, draft: null, preview: null, problems: null, saving: false };
 // Makes sure freshly redrawn images aren't served from the browser's cache.
 var version = Date.now();
 
@@ -105,8 +118,45 @@ function render() {
     '<p class="empty">Nothing here yet.</p>';
 }
 
+function field(label, path, value, multiline) {
+  var input = multiline
+    ? '<textarea data-field="' + path + '" rows="' + (path === 'caption.body' ? 4 : 2) + '">' + esc(value) + '</textarea>'
+    : '<input data-field="' + path + '" value="' + esc(value) + '">';
+  return '<label>' + label + input + '</label>';
+}
+
+function editForm() {
+  var d = state.draft;
+  var sizes = ['portrait', 'square'].map(function (size) {
+    return '<option' + (d.image.size === size ? ' selected' : '') + '>' + size + '</option>';
+  }).join('');
+  return '<div class="edit">' +
+    '<h3>Image</h3>' +
+    field('Label', 'image.label', d.image.label) +
+    field('Big number (optional)', 'image.big', d.image.big) +
+    field('Headline', 'image.headline', d.image.headline, true) +
+    field('Supporting line (optional)', 'image.sub', d.image.sub, true) +
+    '<label>Size<select data-field="image.size">' + sizes + '</select></label>' +
+    '<h3>Caption</h3>' +
+    field('Hook (first line)', 'caption.hook', d.caption.hook, true) +
+    field('Body (one line each)', 'caption.body', d.caption.body.join('\n'), true) +
+    field('Action (last line)', 'caption.action', d.caption.action) +
+    field('Hashtags', 'caption.hashtags', d.caption.hashtags.join(' ')) +
+    field('First comment', 'firstComment', d.firstComment, true) +
+    '<ul class="problems" id="problems"><li class="ok">Checking…</li></ul>' +
+    '<div class="actions"><button id="save" class="primary" disabled>Save</button><button id="cancel">Cancel</button></div>' +
+  '</div>';
+}
+
 function card(post) {
   var img = '/images/' + esc(post.imageFile) + '?v=' + version;
+  if (state.editing === post.id) {
+    return '<article class="post editing">' +
+      '<div><img id="edit-img" src="' + (state.preview || img) + '" alt="' + esc(post.image.headline) + '">' +
+        '<p class="hint" id="edit-hint">The image redraws as you type.</p></div>' +
+      '<div><div class="meta"><b>' + esc(post.id) + '</b><span>' + esc(post.type) + '</span>' +
+        '<span class="pill approved">Editing</span></div>' + editForm() + '</div></article>';
+  }
   var sources = (post.sources || []).map(function (s) {
     return '<li><a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.title || s.url) + '</a></li>';
   }).join('');
@@ -129,6 +179,7 @@ function card(post) {
       (post.fromIdea ? '<h3>From the ideas list</h3><p>' + esc(post.fromIdea) + '</p>' : '') +
       (sources ? '<h3>Sources</h3><ul>' + sources + '</ul>' : '') +
       '<div class="actions">' + buttons +
+        '<button data-edit="' + esc(post.id) + '"' + (state.editing ? ' disabled' : '') + '>Edit</button>' +
         '<a href="' + img + '" download="forethrive-' + esc(post.id) + '.png">Download image</a></div>' +
     '</div></article>';
 }
@@ -151,6 +202,109 @@ function setStatus(id, status) {
     render();
   }).catch(function () { alert('Could not save that change. Is the review server still running?'); });
 }
+
+// Editing: changes go into state.draft, Post Studio redraws the image, and the
+// server runs the brand checks. Save is allowed once everything passes.
+var studio = document.getElementById('studio');
+var studioReady = new Promise(function (resolve) { studio.addEventListener('load', resolve); });
+var refreshTimer = null;
+
+function startEdit(id) {
+  var post = findPost(id);
+  state.editing = id;
+  state.draft = JSON.parse(JSON.stringify({ image: post.image, caption: post.caption, firstComment: post.firstComment }));
+  state.preview = null;
+  state.problems = null;
+  render();
+  refresh();
+}
+
+function stopEdit() {
+  state.editing = null;
+  state.draft = null;
+  render();
+}
+
+function setField(path, value) {
+  if (path === 'caption.body') value = value.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+  if (path === 'caption.hashtags') value = value.split(/[\s,]+/).filter(Boolean);
+  var parts = path.split('.');
+  if (parts.length === 2) state.draft[parts[0]][parts[1]] = value;
+  else state.draft[path] = value;
+}
+
+function updateSave() {
+  var button = document.getElementById('save');
+  if (button) button.disabled = state.saving || !state.preview || state.problems === null || state.problems.length > 0;
+}
+
+function showProblems() {
+  var list = document.getElementById('problems');
+  if (!list) return;
+  list.innerHTML = state.problems.length
+    ? state.problems.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('')
+    : '<li class="ok">Passes every brand check.</li>';
+  updateSave();
+}
+
+// Waits until typing pauses, then redraws the image and checks the edit.
+function refresh() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(function () {
+    var id = state.editing;
+    studioReady
+      .then(function () { return studio.contentWindow.renderPost(state.draft.image); })
+      .then(function (url) {
+        if (state.editing !== id) return;
+        state.preview = url;
+        document.getElementById('edit-img').src = url;
+        updateSave();
+      })
+      .catch(function (error) { document.getElementById('edit-hint').textContent = error.message; });
+    fetch('/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id, edit: state.draft })
+    }).then(function (res) { return res.json(); }).then(function (result) {
+      if (state.editing !== id) return;
+      state.problems = result.problems;
+      showProblems();
+    });
+  }, 200);
+}
+
+function save() {
+  state.saving = true;
+  updateSave();
+  fetch('/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: state.editing, edit: state.draft, png: state.preview })
+  }).then(function (res) {
+    return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+  }).then(function (result) {
+    if (!result.ok) {
+      state.problems = result.data.problems || ['Could not save'];
+      return showProblems();
+    }
+    var saved = result.data.post;
+    state.posts = state.posts.map(function (p) { return p.id === saved.id ? saved : p; });
+    version = Date.now();
+    stopEdit();
+  }).catch(function () { alert('Could not save that edit. Is the review server still running?'); })
+    .then(function () { state.saving = false; updateSave(); });
+}
+
+document.addEventListener('input', function (e) {
+  var path = e.target.dataset && e.target.dataset.field;
+  if (!path || !state.editing) return;
+  setField(path, e.target.value);
+  // Saving waits for the new image and the new check.
+  state.preview = null;
+  state.problems = null;
+  updateSave();
+  refresh();
+});
 
 // Builds the zip on the server, then downloads it.
 function exportShortlist() {
@@ -177,6 +331,9 @@ document.addEventListener('click', function (e) {
   var b = e.target.closest('button');
   if (!b) return;
   if (b.id === 'export') exportShortlist();
+  else if (b.id === 'save') save();
+  else if (b.id === 'cancel') stopEdit();
+  else if (b.dataset.edit) startEdit(b.dataset.edit);
   else if (b.dataset.filter) { state.filter = b.dataset.filter; render(); }
   else if (b.dataset.status) setStatus(b.dataset.id, b.dataset.status);
   else if (b.dataset.copy) {

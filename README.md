@@ -75,7 +75,11 @@ After polishing or generating, the review page opens at http://localhost:4400.
 
 1. Approve the drafts you want and skip the rest. Clicking a button again
    undoes it.
-2. To share the shortlist, click **Export shortlist**. It saves and downloads
+2. To change a post, click **Edit**. Change any field (label, big number,
+   headline, supporting line, caption, hashtags or first comment). The image
+   redraws as you type, and any brand-rule problems show straight away.
+   **Save** works once everything passes; **Cancel** keeps the post as it was.
+3. To share the shortlist, click **Export shortlist**. It saves and downloads
    one zip of the approved posts, ready to attach to an email:
 
    | In the zip | For |
@@ -87,13 +91,13 @@ After polishing or generating, the review page opens at http://localhost:4400.
 
    A batch of 14 comes to about 15 MB, under Gmail's 25 MB limit. From a
    terminal, `npm run export` does the same.
-3. To post an approved draft:
+4. To post an approved draft:
    1. Download the image.
    2. On LinkedIn, switch to the Forethrive page and start a post.
    3. Add the image and paste the caption, then post it.
    4. Paste the first comment, which has the link.
    5. Mark it posted on the review page, so later batches don't repeat it.
-4. Stop the review page with Ctrl+C in its terminal. Open it again later with
+5. Stop the review page with Ctrl+C in its terminal. Open it again later with
    `npm run review`.
 
 ## Setting up a computer (once)
@@ -205,7 +209,7 @@ Each command works on the newest batch unless you name another one, for example
 | `requirements.txt` | The Python packages the agents need |
 | `.env.example` | The settings template for the Python agents |
 | `scripts/` | The validate, render and review scripts (shared code in `scripts/lib/`) |
-| `review/index.html` | The review page |
+| `review/index.html` | The review page, including editing |
 | `review/shortlist.html` | The design of the exported shortlist (HTML and PDF) |
 | `posts/` | One folder per batch, with `posts.json` and the images |
 

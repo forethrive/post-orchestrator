@@ -1,7 +1,7 @@
 // A small web server for reviewing a batch on this Mac: see each post, copy its
-// caption, mark it approved, skipped or posted, and export the approved ones
-// as a shortlist to share. Changes are saved straight into the batch's
-// posts.json.
+// caption, edit it, mark it approved, skipped or posted, and export the
+// approved ones as a shortlist to share. Changes are saved straight into the
+// batch's posts.json.
 // Usage: npm run review              (newest batch)
 //        npm run review -- posts/2026-10-13
 import fs from 'node:fs';
@@ -10,6 +10,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { ROOT, findBatch, readBatch, writeBatch, imageFile, captionText } from './lib/batch.js';
 import { buildShortlist, EMAIL_LIMIT_MB } from './lib/shortlist.js';
+import { checkPost, loadAllowedUrls } from './lib/checks.js';
 import { STATUSES } from '../brand/rules.js';
 
 const PORT = 4400;
@@ -18,6 +19,31 @@ const args = process.argv.slice(2);
 const dir = findBatch(args.find((arg) => !arg.startsWith('--')));
 const reviewPage = fs.readFileSync(path.join(ROOT, 'review', 'index.html'));
 let lastExport = null;
+
+// The fields an edit may change. Everything else (id, type, sources, status…)
+// stays as it was.
+function applyEdit(post, edit) {
+  const text = (value) => String(value ?? '');
+  const list = (value) => (Array.isArray(value) ? value.map(text) : []);
+  return {
+    ...post,
+    image: {
+      ...post.image,
+      label: text(edit.image?.label),
+      big: text(edit.image?.big),
+      headline: text(edit.image?.headline),
+      sub: text(edit.image?.sub),
+      size: edit.image?.size === 'square' ? 'square' : 'portrait',
+    },
+    caption: {
+      hook: text(edit.caption?.hook),
+      body: list(edit.caption?.body),
+      action: text(edit.caption?.action),
+      hashtags: list(edit.caption?.hashtags),
+    },
+    firstComment: text(edit.firstComment),
+  };
+}
 
 function send(res, status, type, body) {
   res.writeHead(status, { 'Content-Type': type });
@@ -79,6 +105,37 @@ async function handle(req, res) {
     post.status = status;
     writeBatch(dir, batch);
     return sendJson(res, 200, { id, status });
+  }
+
+  // Post Studio itself, so the page can redraw an image while it's being edited.
+  if (req.method === 'GET' && url.pathname === '/post-studio.html') {
+    return send(res, 200, 'text/html; charset=utf-8', fs.readFileSync(path.join(ROOT, 'post-studio.html')));
+  }
+
+  // Runs the brand checks on an edit that isn't saved yet.
+  if (req.method === 'POST' && url.pathname === '/check') {
+    const { id, edit } = await readJson(req);
+    const post = readBatch(dir).posts.find((p) => p.id === id);
+    if (!post) return send(res, 400, 'text/plain', 'Unknown post');
+    return sendJson(res, 200, { problems: checkPost(applyEdit(post, edit), loadAllowedUrls(dir)) });
+  }
+
+  // Saves an edit and its redrawn image, but only if it passes the checks.
+  if (req.method === 'POST' && url.pathname === '/save') {
+    const { id, edit, png } = await readJson(req);
+    const batch = readBatch(dir);
+    const index = batch.posts.findIndex((p) => p.id === id);
+    if (index === -1) return send(res, 400, 'text/plain', 'Unknown post');
+    const updated = applyEdit(batch.posts[index], edit);
+    const problems = checkPost(updated, loadAllowedUrls(dir));
+    if (problems.length > 0) return sendJson(res, 400, { problems });
+    const prefix = 'data:image/png;base64,';
+    if (typeof png !== 'string' || !png.startsWith(prefix)) return send(res, 400, 'text/plain', 'Missing image');
+
+    fs.writeFileSync(path.join(dir, imageFile(updated)), Buffer.from(png.slice(prefix.length), 'base64'));
+    batch.posts[index] = updated;
+    writeBatch(dir, batch);
+    return sendJson(res, 200, { post: { ...updated, captionText: captionText(updated), imageFile: imageFile(updated) } });
   }
 
   // Builds the shortlist zip from the approved posts, then the page downloads it.
