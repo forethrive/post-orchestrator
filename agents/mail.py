@@ -70,17 +70,19 @@ def send(message: EmailMessage, config: dict, dry_run_path: Path | None = None) 
         dry_run_path.write_bytes(bytes(message))
         print(f"Dry run: saved the email as {dry_run_path.relative_to(ROOT) if dry_run_path.is_relative_to(ROOT) else dry_run_path}")
         return
+    # Port 465 is encrypted from the start; other ports switch to encryption
+    # (STARTTLS) when the server offers it.
     if config["port"] == 465:
         server = smtplib.SMTP_SSL(config["host"], config["port"], context=ssl.create_default_context(), timeout=60)
     else:
         server = smtplib.SMTP(config["host"], config["port"], timeout=60)
+    with server:
         server.ehlo()
-        if server.has_extn("starttls"):
+        if config["port"] != 465 and server.has_extn("starttls"):
             server.starttls(context=ssl.create_default_context())
             server.ehlo()
-    with server:
-        if server.has_extn("auth"):
-            server.login(config["from"], config["password"])
+        # Always log in: the settings require a password.
+        server.login(config["from"], config["password"])
         server.send_message(message)
     print(f"Sent \"{message['Subject']}\" to {message['To']}.")
 
