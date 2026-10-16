@@ -50,7 +50,7 @@ def load_env_file() -> None:
 
 def settings() -> dict:
     sender = os.environ.get("MAIL_FROM", "").strip()
-    password = os.environ.get("MAIL_APP_PASSWORD", "").replace(" ", "")
+    password = "".join(os.environ.get("MAIL_APP_PASSWORD", "").split())
     to = [a.strip() for a in os.environ.get("MAIL_TO", "").split(",") if a.strip()]
     errors_to = [a.strip() for a in os.environ.get("MAIL_ERRORS_TO", "").split(",") if a.strip()] or [sender]
     if not sender or not password:
@@ -63,6 +63,14 @@ def settings() -> dict:
         "host": os.environ.get("MAIL_SMTP_HOST", "smtp.gmail.com"),
         "port": int(os.environ.get("MAIL_SMTP_PORT", "465")),
     }
+
+
+def password_note(password: str) -> str:
+    """Describes the app password's shape, never the password itself."""
+    if len(password) == 16 and password.isalpha():
+        return "16 letters, as expected for a Google app password"
+    kind = "letters only" if password.isalpha() else "not only letters"
+    return f"{len(password)} characters, {kind}. Google app passwords are 16 letters, so check it was copied fully"
 
 
 def send(message: EmailMessage, config: dict, dry_run_path: Path | None = None) -> None:
@@ -81,7 +89,11 @@ def send(message: EmailMessage, config: dict, dry_run_path: Path | None = None) 
         if config["port"] != 465 and server.has_extn("starttls"):
             server.starttls(context=ssl.create_default_context())
             server.ehlo()
-        # Always log in: the settings require a password.
+        # Always log in: the settings require a password. Use one method only:
+        # if Gmail rejects it, trying a second method hides Gmail's real reason
+        # behind "Connection unexpectedly closed".
+        if "PLAIN" in server.esmtp_features.get("auth", "").upper().split():
+            server.preferred_auths = ["PLAIN"]
         server.login(config["from"], config["password"])
         server.send_message(message)
     print(f"Sent \"{message['Subject']}\" to {message['To']}.")
@@ -198,6 +210,7 @@ def main() -> int:
                 raise MailError("Set MAIL_TO in .env: who gets the weekly drafts (comma-separated).")
             print(f"Email settings look complete: drafts go from {config['from']} to {', '.join(config['to'])}; "
                   f"errors go to {', '.join(config['errors_to'])}.")
+            print(f"App password: {password_note(config['password'])}.")
             return 0
         if args.command == "drafts":
             folder = batch_folder(args.folder)
@@ -220,6 +233,16 @@ def main() -> int:
     except MailError as problem:
         print(problem, file=sys.stderr)
         return 2
+    except smtplib.SMTPAuthenticationError as problem:
+        reason = problem.smtp_error.decode(errors="replace").replace("\n", " ") if isinstance(problem.smtp_error, bytes) else str(problem)
+        print(
+            f"The mail server didn't accept the login for {os.environ.get('MAIL_FROM')}: {reason}\n"
+            "Check that MAIL_FROM is the account the app password was made in, that the app password was "
+            "copied fully (16 letters), and that 2-Step Verification is on. On Google Workspace, the admin "
+            "may need to allow app passwords.",
+            file=sys.stderr,
+        )
+        return 1
     except (smtplib.SMTPException, OSError) as problem:
         print(f"Could not send the email: {problem}", file=sys.stderr)
         return 1
