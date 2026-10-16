@@ -7,4 +7,4 @@ import { renderBatch } from './lib/draw.js';
 
 const dir = findBatch(process.argv[2]);
 const count = await renderBatch(dir);
-console.log(`\n${count} images saved in ${path.relative(ROOT, dir)}.`);
+console.log(`\n${count} image${count === 1 ? "" : "s"} saved in ${path.relative(ROOT, dir)}.`);

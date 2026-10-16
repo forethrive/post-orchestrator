@@ -1,5 +1,6 @@
 // The brand guide and "no invented facts" checks for a single post. Used by
-// npm run validate and by npm run generate, so both apply the same rules.
+// npm run validate, which the Python agents also run, so every way of making
+// posts applies the same rules.
 import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT } from './batch.js';
@@ -16,9 +17,6 @@ import {
 const EMOJI = /\p{Extended_Pictographic}/u;
 const countWords = (text) => text.trim().split(/\s+/).filter(Boolean).length;
 export const normaliseUrl = (url) => url.trim().replace(/\/+$/, '');
-
-// The numbers in a piece of text, such as 46, 5179 or 1.4 (commas removed).
-export const numbersIn = (text) => (text.match(/\d[\d,.]*\d|\d/g) ?? []).map((n) => n.replace(/,/g, ''));
 
 // Every URL listed in brand/facts.md. A post may only cite sources from there.
 export function loadFactUrls() {

@@ -7,9 +7,9 @@ brand/ideas.md
 
 .DS_Store
 
-# API keys for npm run generate.
-.env
-
 # The Python environment for the agents.
 .venv/
 __pycache__/
+
+# API keys for the agents.
+.env
