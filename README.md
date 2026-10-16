@@ -188,6 +188,7 @@ Each command works on the newest batch unless you name another one, for example
 | `brand/ideas.example.md` | The format for `brand/ideas.md` |
 | `brand/rules.js` | The brand guide's limits, used by the validator |
 | `agents/` | The Python agents, built with LangGraph (see below) |
+| `docs/how-the-agents-work.md` | How the agents work, step by step, and how they were built |
 | `requirements.txt` | The Python packages the agents need |
 | `.env.example` | The settings template for the Python agents |
 | `scripts/` | The validate, render and review scripts (shared code in `scripts/lib/`) |
@@ -197,6 +198,9 @@ Each command works on the newest batch unless you name another one, for example
 `.env`, `brand/ideas.md` and `posts/` are never committed (see `.gitignore`).
 They hold API keys, client details and unannounced news, and this repository is
 public. They live only on the computer that makes the posts.
+
+For a beginner-friendly explanation of how the agents work and how they were
+built, see [docs/how-the-agents-work.md](docs/how-the-agents-work.md).
 
 ### How the Python and JavaScript parts fit together
 
